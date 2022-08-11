@@ -6,6 +6,9 @@ import datetime
 import psutil
 import yaml
 Loop=None
+extervar=None
+ed='vi'
+mouse=True
 # a=urwid.Text(u'hello word',align='center')
 # a.rows((11,))#定义了文本，还可以定义文本的悬浮
 # b=urwid.Filler(a,'middle')    #定义了文本模块的位置
@@ -111,41 +114,124 @@ class SwitchingPadding(urwid.Padding):
             self.align = "right"
         return urwid.Padding.padding_values(self, size, focus)
 
+def ctrl_opeater(opeater):
+    oper_list=[]
+    oper_list.append(urwid.Divider())
+    for i in opeater:
+        ctrls = urwid.Text(i)
+        oper_list.append(ctrls)
+    return oper_list
+def count_str(text):
+    s=len(text.encode('gbk'))
+    text_len=35-s
+    return text_len*' '
+def file_dir():
+    # getFileInfo('/home/wlw/PycharmProjects/pythonProject')
+    with open('dir.yaml', 'r') as f:
+        datas = yaml.safe_load(f)
+    output = os.popen(f'ls -lAhF {datas["Dir"]}')
+    # print(output)
+    dir = []
+    file = []
+    for i in output:
+        if i.strip().split(' ')[0] == 'total':
+            continue
+        output_list = i.strip().split(' ')
+        output_list = [ii for ii in output_list if (len(str(ii)) != 0)]  # 去除列表空值
+        if output_list[0][0] == 'd':
+            dir.append(output_list)
+        elif output_list[0][0] == 'l' and output_list[-1][-1] == '/':
+            # os.system(f'echo {output_list} >> 123')
+            dir.append(output_list)
+        elif output_list[0][0] == 'l' and output_list[-1][-1] != '/':
+            file.append(output_list)
+        else:
+            file.append(output_list)
+    return file, dir
 
 
+def create_button_list(file, dir):
+    font_buttons=[]
+    '''
+    如果file和dir都为空则正常
+    '''
+    if file == [] and dir == []:  # 如果file和dir列表为空
+        file = dir = [' ']
+    elif file == []:
+        file = [' ']
+    elif dir == []:  # 1 如果dir为空的话 那么创建一个file按钮
+        for i in [' ']:
+            rb = create_file_button(i)
+            font_buttons.append(rb)
 
-# class myListBox(urwid.Frame):
-#     def keypress(self, size, key):
+    for i in dir:
+        rb = create_dir_button(i)
+        font_buttons.append(rb)
+    for i in file:
 
+        rb = create_file_button(i)
+        if dir == []:  # 1 如果dir为空的话 那么创建一个file按钮追加到空白按钮的前面
+            font_buttons.insert(0, rb)
+        else:
+            font_buttons.append(rb)
+    return font_buttons
+            
+def create_dir_button(name):
+    #w = urwid.RadioButton(g, name, False, on_state_change=fn)
+    if name!=' ':
 
+        if name[-2] == '->':
+           # os.system(f'echo {name} >> 123')
+            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
+        else:
+           # os.system(f'echo {name} >> 123')
+            file = name[-1]
+        user_group=name[2]+'/'+name[3]
+        chmod=name[0]
+        file_size=name[4]
+        dates=name[5]+name[6]+'日'+' '+name[7]
+        w=DirButton(f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}')
 
+    else:
+        w = urwid.Button(' ')
+    w = urwid.AttrWrap(w, 'button normal', 'dir button select')
+    return w
+def create_file_button(name):
+    if name != ' ':
+        if name[-2] == '->':
+            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
+        else:
+            file = name[-1]
+        user_group = name[2] + '/' + name[3]
+        chmod = name[0]
+        file_size = name[4]
+        dates = name[5] + name[6] + '日' + ' ' + name[7]
 
+        w = ThingWithAPopUp(FileButton(
+            f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}')
+        )
 
-
-
-
+    else:
+        w = urwid.Button(' ')
+    w = urwid.AttrWrap(w, 'button normal', 'file button select')
+    return w
 
 
  #同种button可以做到不一样的效果
-
 
 class DirButton(urwid.Button):
     def keypress(self, size, key):
         if key in ('enter',) :
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            if datas["Dir"] == '/':
-                os.system(f'ls -alh {datas["Dir"]}{self.label.strip().split(" ")[0]} > file.txt')
-        #elif key in ('ctrl t'):
-                    #urwid.set_encoding('utf8')
-                    #PopUp(self).create_pop_up()
-                    #pass
-
-                    #os.system('echo 123 > 123')
-                    #abc.get_pop_up_parameters()
-                    #abc.create_pop_up()
-
-
+            with open('dir.yaml', 'w') as f:
+                datas['Dir']=datas["Dir"] + self.label.strip().split(" ")[0]
+                yaml.dump(datas,f)
+                #os.system(f'ls -alh {datas["Dir"]}{self.label.strip().split(" ")[0]} > file.txt')
+            font_buttons = create_button_list(*file_dir())
+            global extervar
+            extervar._set_widget_list(font_buttons)
+            self._emit('click')
         else:
             return key
 class FileButton(urwid.Button):
@@ -303,7 +389,10 @@ class PopUpDialog(urwid.Terminal):
 
     def __init__(self,filename):
         urwid.set_encoding('utf8')
-        self.__super.__init__(('vim',f'{filename}'), encoding='utf-8') #创建一个终端
+        with open('dir.yaml', 'r') as f:
+            datas = yaml.safe_load(f)
+
+        self.__super.__init__((ed,f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
         #self.kp(size,key)
@@ -464,46 +553,9 @@ class BigTextDisplay:
         ('chars_bg', 'light gray', 'dark magenta'),
         ('exit',         'white',      'dark cyan'),
         ]
-    def count_str(self,text):
-        s=len(text.encode('gbk'))
-        text_len=35-s
-        return text_len*' '
-    def create_dir_button(self, name):
-        #w = urwid.RadioButton(g, name, False, on_state_change=fn)
-        if name[-2] == '->':
-           # os.system(f'echo {name} >> 123')
-            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
-        else:
-           # os.system(f'echo {name} >> 123')
-            file = name[-1]
-        user_group=name[2]+'/'+name[3]
-        chmod=name[0]
-        file_size=name[4]
-        dates=name[5]+name[6]+'日'+' '+name[7]
-        # w=urwid.Button(
-        #     f' {file}{self.count_str(file)}{user_group}{self.count_str(user_group)}{chmod}{self.count_str(chmod)}{file_size}{self.count_str(file_size)}{dates}')
-        # 利用固定值的字符数来制作行
-        w=DirButton(f' {file[:30]}{self.count_str(file[:30])}{user_group}{self.count_str(user_group)}{chmod}{self.count_str(chmod)}{file_size}{self.count_str(file_size)}{dates}')
-        w = urwid.AttrWrap(w, 'button normal', 'dir button select')
 
-        return w
-    def create_file_button(self, name):
-        #w = urwid.RadioButton(g, name, False, on_state_change=fn)
 
-        if name[-2] == '->':
-            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
-        else:
-            file = name[-1]
-        user_group = name[2] + '/' + name[3]
-        chmod = name[0]
-        file_size = name[4]
-        dates = name[5] + name[6] + '日' + ' ' + name[7]
 
-        w = ThingWithAPopUp(FileButton(
-            f' {file[:30]}{self.count_str(file[:30])}{user_group}{self.count_str(user_group)}{chmod}{self.count_str(chmod)}{file_size}{self.count_str(file_size)}{dates}')
-        )
-        w = urwid.AttrWrap(w, 'button normal', 'file button select')
-        return w
 
     def create_disabled_radio_button(self, name):
         w = urwid.Text("    " + name + " (UTF-8 mode required)")
@@ -525,43 +577,28 @@ class BigTextDisplay:
     def edit_change_event(self, widget, text):
         self.bigtext.set_text(text)
 
-    def file_dir(self):
-        # getFileInfo('/home/wlw/PycharmProjects/pythonProject')
-        with open('dir.yaml','r') as f:
-            datas = yaml.safe_load(f)
-        output = os.popen(f'ls -lahF {datas["Dir"]}')
-        # print(output)
-        dir = []
-        file = []
-        for i in output:
-            if i.strip().split(' ')[0] == 'total':
-                continue
-            output_list = i.strip().split(' ')
-            output_list = [ii for ii in output_list if (len(str(ii)) != 0)]  #去除列表空值
-            if output_list[0][0] == 'd':
-                dir.append(output_list)
-            elif output_list[0][0] == 'l' and output_list[-1][-1]=='/':
-                #os.system(f'echo {output_list} >> 123')
-                dir.append(output_list)
-            elif output_list[0][0] == 'l' and output_list[-1][-1]!='/':
-                file.append(output_list)
-            else:
-                file.append(output_list)
-        return file, dir
+
+
+    def create_button(self):
+        font_buttons = []
+        global extervar
+        font_buttons=create_button_list(*file_dir())
+        chars = urwid.Divider()
+        #os.system(f'echo {len(font_buttons)} > 123')
+        self.fonts = urwid.Pile(font_buttons,
+                            focus_item=1)
+
+        extervar=self.fonts
+        self.col = urwid.Columns([('fixed', 0, chars), self.fonts], 0,
+                            focus_column=1)
+
+
+
 
     def setup_view(self):
         fonts = urwid.get_all_fonts()
         # setup mode radio buttons
-        self.font_buttons = []
-        file,dir=self.file_dir()
 
-
-        for i in dir:
-            rb=self.create_dir_button(i)
-            self.font_buttons.append(rb)
-        for i in file:
-            rb=self.create_file_button(i)
-            self.font_buttons.append(rb)
         #print(rb)
         for name, fontcls in fonts:
             font = fontcls()
@@ -581,13 +618,7 @@ class BigTextDisplay:
 
         bt = urwid.Filler(bt, 'middle',None)
 
-        def ctrl_opeater(opeater):
-            oper_list=[]
-            oper_list.append(urwid.Divider())
-            for i in opeater:
-                ctrls = urwid.Text(i)
-                oper_list.append(ctrls)
-            return oper_list
+
 
         oper=(
             u'Ctrl+r 刷新页面',
@@ -630,7 +661,7 @@ class BigTextDisplay:
         system_info=urwid.Padding(info,align='right',width=('relative',80))
 
         #system_contorl = SwitchingPadding(system_info, 'right', None, left=4)
-        files = urwid.Columns([bt,controll_list,system_info],0, focus_column=1)  #标题覆盖
+        files = urwid.Columns([bt,controll_list,system_info],0, focus_column=1)  #第一行的格局配置
         bt = urwid.BoxAdapter(files,10)
         bt = urwid.LineBox(bt)
         bt = urwid.AttrWrap(bt,'bigtext')
@@ -649,14 +680,12 @@ class BigTextDisplay:
             self.edit_change_event)
 
         # ListBox
-        chars = urwid.Divider()
-        fonts = urwid.Pile(self.font_buttons,
-            focus_item=1)
 
-        col = urwid.Columns([('fixed',0,chars), fonts], 0,
-            focus_column=1)
+
+
+        self.create_button()
         bt = urwid.Pile([bt, edit], focus_item=1)
-        files = urwid.Text(f"   文件名称{self.count_str('文件名称')}权限大小{self.count_str('权限大小')}用户/组{self.count_str('用户/组')}文件大小{self.count_str('文件大小')}创建时间{self.count_str('创建时间')}")
+        files = urwid.Text(f"   文件名称{count_str('文件名称')}权限大小{count_str('权限大小')}用户/组{count_str('用户/组')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
 
 
         #pb = urwid.ProgressBar('Begin', 'END') #进度条
@@ -666,10 +695,8 @@ class BigTextDisplay:
         #fill = urwid.Padding(ThingWithAPopUp(), 'center',15)
         #fill=urwid.LineBox(fill)
 
-        l = [bt,files,col,last]
+        l = [bt,files,self.col,last]
         w = urwid.ListBox(urwid.SimpleListWalker(l))
-        #w = myListBox(urwid.SimpleListWalker(l))
-        # Frame
         w = urwid.AttrWrap(w, 'body')
         hdr = urwid.Text("Lin v1.0 - F8 exits.")
         hdr = urwid.AttrWrap(hdr, 'header')
@@ -679,7 +706,6 @@ class BigTextDisplay:
         # Exit message
 
         exit = urwid.BigText(('exit'," Quit? "), exit_font)
-        self.avc=exit_font
         exit = urwid.Overlay(exit, w, 'center', None, 'middle', None)
         return w, exit
     def change_data(self):
@@ -693,32 +719,42 @@ class BigTextDisplay:
             self.dates.set_text(str_p)
             self.cpu.set_text(str(psutil.cpu_percent(None))+'% :Cpu')
             self.mem.set_text(str(psutil.virtual_memory().percent) + '% :Mem')
-            #self.font_buttons=[]
             self.loop.draw_screen()
 
 
     def main(self):
         self.view, self.exit_view = self.setup_view()
         self.loop = urwid.MainLoop(self.view, self.palette,
-            unhandled_input=self.unhandled_input,pop_ups=True,handle_mouse=False)  #handle_mouse 开启鼠标点选模式，默认为真不能使用复制粘贴功能
+            unhandled_input=self.unhandled_input,pop_ups=True,handle_mouse=mouse)  #handle_mouse 开启鼠标点选模式，默认为真不能使用复制粘贴功能
         global Loop
         Loop=self.loop
         threading.Thread(target=self.change_data, args=()).start()
         self.loop.run()
-        # for i in range(10):
-        #     with open('123','w') as f:
-        #         f.write(str(i))
-            # self.info = urwid.Pile([])
-            # self.loop.draw_screen()
+
 
 
     def unhandled_input(self, key):
+        if key == 'esc':  #刷新
+            with open('dir.yaml', 'r') as f:
+                datas = yaml.safe_load(f)
+            Dir=[ii for ii in datas['Dir'].split('/') if (len(str(ii)) != 0)]
+            #os.system(f'echo "{Dir}" > 123')
+            with open('dir.yaml', 'w') as f:
+                if Dir!=[]:
+                    datas['Dir'] = datas['Dir'].replace(Dir[-1]+'/','')
+                yaml.dump(datas, f)
+            font_buttons=create_button_list(*file_dir())
+            self.fonts._set_widget_list(font_buttons)
         if key == 'ctrl t':
             urwid.set_encoding('utf8')
             term=Termpop(self.view)
             exit = urwid.LineBox(term)
-            exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)
+            exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)  #这里300和300不设置会报错
             self.loop.widget = exit
+            return
+        if key == 'ctrl r':  #刷新
+            font_buttons=create_button_list(*file_dir())
+            self.fonts._set_widget_list(font_buttons)
             return
         if key == 'f8':
             self.loop.widget = self.exit_view

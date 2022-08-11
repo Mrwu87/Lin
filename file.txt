@@ -1,30 +1,3 @@
-total 92K
-drwxr-xr-x  20 root root 4.0K 8月  10 17:14 .
-drwxr-xr-x  20 root root 4.0K 8月  10 17:14 ..
-lrwxrwxrwx   1 root root    7 7月   4 10:52 bin -> usr/bin
-drwxr-xr-x   4 root root 4.0K 7月  17 10:00 boot
-drwxrwxr-x   2 root root 4.0K 7月   4 10:54 cdrom
-drwxr-xr-x  21 root root 4.7K 8月  10 19:18 dev
-drwxr-xr-x 144 root root  12K 8月  10 18:13 etc
-drwxr-xr-x   4 root root 4.0K 7月  14 14:21 home
-lrwxrwxrwx   1 root root    7 7月   4 10:52 lib -> usr/lib
-lrwxrwxrwx   1 root root    9 7月   4 10:52 lib32 -> usr/lib32
-lrwxrwxrwx   1 root root    9 7月   4 10:52 lib64 -> usr/lib64
-lrwxrwxrwx   1 root root   10 7月   4 10:52 libx32 -> usr/libx32
-drwx------   2 root root  16K 7月   4 10:52 lost+found
-drwxr-xr-x   3 root root 4.0K 7月   5 10:17 media
-drwxr-xr-x   2 root root 4.0K 2月  23 16:47 mnt
-drwxr-xr-x  11 root root 4.0K 7月  25 09:41 opt
-dr-xr-xr-x 364 root root    0 8月   9 19:48 proc
-drwx------  10 root root 4.0K 8月  10 17:10 root
-drwxr-xr-x  42 root root 1.4K 8月  10 20:35 run
-lrwxrwxrwx   1 root root    8 7月   4 10:52 sbin -> usr/sbin
--rw-r--r--   1 root root 3.9K 8月  10 17:14 scheduler-general-0.1.6.tgz
-drwxr-xr-x  12 root root 4.0K 7月  11 11:37 snap
-drwxr-xr-x   2 root root 4.0K 2月  23 16:47 srv
-dr-xr-xr-x  13 root root    0 8月   9 19:48 sys
--rw-r--r--   1 root root    7 8月  10 12:23 text.txt
-drwxrwxrwt  25 root root 4.0K 8月  10 20:36 tmp
-drwxr-xr-x  14 root root 4.0K 2月  23 16:48 usr
-drwxr-xr-x  14 root root 4.0K 2月  23 16:53 var
--rw-r--r--   1 root root    0 8月   9 17:54 吴林伟
+total 8.0K
+drwxr-xr-x  2 root root 4.0K 2月  23 16:47 .
+drwxr-xr-x 14 root root 4.0K 2月  23 16:48 ..
