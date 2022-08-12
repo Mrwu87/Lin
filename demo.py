@@ -6,9 +6,10 @@ import datetime
 import psutil
 import yaml
 Loop=None
-extervar=None
+exterfonts=None
 ed='vi'
 mouse=True
+original_buttons=None
 # a=urwid.Text(u'hello word',align='center')
 # a.rows((11,))#定义了文本，还可以定义文本的悬浮
 # b=urwid.Filler(a,'middle')    #定义了文本模块的位置
@@ -229,11 +230,14 @@ class DirButton(urwid.Button):
                 yaml.dump(datas,f)
                 #os.system(f'ls -alh {datas["Dir"]}{self.label.strip().split(" ")[0]} > file.txt')
             font_buttons = create_button_list(*file_dir())
-            global extervar
-            extervar._set_widget_list(font_buttons)
+            global exterfonts
+            exterfonts._set_widget_list(font_buttons)
+            global original_buttons
+            original_buttons = exterfonts._get_widget_list()
             self._emit('click')
         else:
             return key
+
 class FileButton(urwid.Button):
     # def __init__(self, abc):
     #     self.abc = abc
@@ -564,8 +568,8 @@ class BigTextDisplay:
 
     def create_edit(self, label, text, fn):
         w = urwid.Edit(label, text)
-        #urwid.connect_signal(w, 'change', fn)
-        #fn(w, text)
+        urwid.connect_signal(w, 'change', fn)
+        #fn(w)
         w = urwid.AttrWrap(w, 'edit')
         return w
 
@@ -574,21 +578,45 @@ class BigTextDisplay:
             self.bigtext.set_font(w.font)
             self.chars_avail.set_text(w.font.characters())
 
-    def edit_change_event(self, widget, text):
-        self.bigtext.set_text(text)
+    def edit_change_event(self, widget,label):
+        # self.bigtext.set_text(text)
+        font_buttons = []
+        global original_buttons
+        for buttons in original_buttons:
+            try:
+                button_label = buttons.get_w().get_label()
+            except:
+                try:
+                    button_label = buttons.get_w().original_widget.get_label()
+                except:  #
+                    button_label = ''#当上面都失败就是标志着未找到匹配项置为空
+            #os.system(f"echo {button_label} >> 123")
+            #
+            import re
+            if re.findall(f'(.*{label}.*)', button_label):  #匹配项目会出现在列表如匹配apache 列表为['apache']
+                font_buttons.append(buttons)
+        if font_buttons==[]:                  #没有匹配项时添加两个空白的按钮
+            font_buttons=[urwid.Button(''),urwid.Button(' ')]
+        self.fonts._set_widget_list(font_buttons)
 
 
+        # urwid.AttrWrap.set_w
 
     def create_button(self):
         font_buttons = []
-        global extervar
+        global exterfonts
         font_buttons=create_button_list(*file_dir())
         chars = urwid.Divider()
         #os.system(f'echo {len(font_buttons)} > 123')
         self.fonts = urwid.Pile(font_buttons,
                             focus_item=1)
+        global original_buttons
+        original_buttons=self.fonts._get_widget_list()  #使用全局变量来承载创建时的所有按钮的原始列表，在变换字符的同时保证都是对原始目录的筛选，避免删除字符无法回退到之前目录下
 
-        extervar=self.fonts
+        #os.system(f"echo {type(self.fonts)} > 123")
+        #os.system(f"echo '{original_buttons._get_widget_list()}' > 123")
+
+        exterfonts=self.fonts    #传递给外部函数或者全局需要使用self.fonts的地方
         self.col = urwid.Columns([('fixed', 0, chars), self.fonts], 0,
                             focus_column=1)
 
@@ -676,18 +704,14 @@ class BigTextDisplay:
         #chosen_font_rb.set_state(True) # causes set_font_event call
 
         # Create Edit widget
-        edit = self.create_edit("", "",
-            self.edit_change_event)
+
 
         # ListBox
-
-
-
         self.create_button()
+        edit = self.create_edit("", "",
+                                self.edit_change_event)
         bt = urwid.Pile([bt, edit], focus_item=1)
         files = urwid.Text(f"   文件名称{count_str('文件名称')}权限大小{count_str('权限大小')}用户/组{count_str('用户/组')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
-
-
         #pb = urwid.ProgressBar('Begin', 'END') #进度条
         last=urwid.Text(u' ')
         last=urwid.AttrMap(last,'edit')
@@ -701,12 +725,12 @@ class BigTextDisplay:
         hdr = urwid.Text("Lin v1.0 - F8 exits.")
         hdr = urwid.AttrWrap(hdr, 'header')
         w = urwid.Frame(header=hdr, body=w)
-        # w=myFrame(header=hdr,body=w)
 
         # Exit message
 
         exit = urwid.BigText(('exit'," Quit? "), exit_font)
         exit = urwid.Overlay(exit, w, 'center', None, 'middle', None)
+
         return w, exit
     def change_data(self):
         while True:
@@ -740,11 +764,15 @@ class BigTextDisplay:
             Dir=[ii for ii in datas['Dir'].split('/') if (len(str(ii)) != 0)]
             #os.system(f'echo "{Dir}" > 123')
             with open('dir.yaml', 'w') as f:
-                if Dir!=[]:
+                if Dir!=[]: #如果Dir不是根号的话，就进行目录处理
                     datas['Dir'] = datas['Dir'].replace(Dir[-1]+'/','')
                 yaml.dump(datas, f)
             font_buttons=create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
+            #筛选回退保证
+            global original_buttons
+            original_buttons = self.fonts._get_widget_list()
+
         if key == 'ctrl t':
             urwid.set_encoding('utf8')
             term=Termpop(self.view)
