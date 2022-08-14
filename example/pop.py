@@ -10,7 +10,8 @@ class PopUpDialog(urwid.WidgetWrap):
             lambda button:self._emit("close"))
         pile = urwid.Pile([urwid.Text(
             "^^  I'm attached to the widget that opened me. "
-            "Try resizing the window!\n"), close_button])
+            "Try resizing the window!\n"),urwid.SelectableIcon(u"[!]",2), close_button])
+
         abc=urwid.LineBox(pile)
         fill = urwid.Filler(abc)
 
