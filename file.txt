@@ -1,3 +1,0 @@
-total 8.0K
-drwxr-xr-x  2 root root 4.0K 2月  23 16:47 .
-drwxr-xr-x 14 root root 4.0K 2月  23 16:48 ..

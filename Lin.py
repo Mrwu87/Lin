@@ -6,16 +6,15 @@ import datetime
 import psutil
 import yaml
 import pyperclip
-#global var
+
+
+with open('setting.yaml','r') as config:
+    setting=yaml.safe_load(config)
 Loop=None               #使用loop来承载 self.loop 对象
 exterfonts=None         #原始外部font 可以使用_get_widget_list 或者 _set_widget_list方法来修改一整个按钮列表
-ed='vi'                 #编辑器
-mouse=False             #是否开启鼠标事件
 original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮列表  代表筛选前的按钮列表
 file_list=[]            #用于承载选择的文件列表
-short_keys={
 
-}
 
 
 class SwitchingPadding(urwid.Padding):
@@ -70,6 +69,11 @@ def file_dir():
             dir.append(output_list)
         elif output_list[0][0] == 'l' and output_list[-1][-1] != '/':
             file.append(output_list)
+        elif  output_list[0][0] == 'c' or output_list[0][0] == 'b':
+            os.system(f"echo '{output_list}' > 123")
+            output_list[4:-1]=[' ',' ',' ',' ',' ']
+            # output_list[-2] = 'None'
+            file.append(output_list)
         else:
             file.append(output_list)
     return file, dir
@@ -99,6 +103,27 @@ def create_button_list(file, dir):
             font_buttons.append(rb)
     return font_buttons
 
+
+def filename_handling(name):
+    if name[-2] == '->':
+        # os.system(f'echo {name} >> 123')
+        file = name[-1] + ' ' + name[-2] + ' ' + name[-3]
+    else:
+        # os.system(f'echo {name} >> 123')
+        file = name[-1]
+    user_group = name[2] + '/' + name[3]
+    chmod = name[0]
+    file_size = name[4]
+    if len(name[6]) == 2 and len(name[5]) == 3:
+        dates = name[5] + name[6] + '日' + ' ' + name[7]
+    elif len(name[5]) < 3 and len(name[6]) < 2:
+        dates = '0' + name[5] + '0' + name[6] + '日' + ' ' + name[7]
+    elif len(name[6]) < 2:
+        dates = name[5] + '0' + name[6] + '日' + ' ' + name[7]
+    elif len(name[5]) < 3:
+        dates = '0' + name[5] + name[6] + '日' + ' ' + name[7]
+    return f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
+
 def create_dir_button(name):
     '''
         #处理按钮的显示页面部分，显示按钮的文字内容再通过调用传递创建按钮类中
@@ -107,18 +132,7 @@ def create_dir_button(name):
     '''
     #w = urwid.RadioButton(g, name, False, on_state_change=fn)
     if name!=' ':
-
-        if name[-2] == '->':
-           # os.system(f'echo {name} >> 123')
-            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
-        else:
-           # os.system(f'echo {name} >> 123')
-            file = name[-1]
-        user_group=name[2]+'/'+name[3]
-        chmod=name[0]
-        file_size=name[4]
-        dates=name[5]+name[6]+'日'+' '+name[7]
-        w=DirButton(f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}')
+        w=DirButton(filename_handling(name))
         w=w.create_appwarp(w) #对按钮创建Attrwarp
     else:
         w = urwid.Button(' ')
@@ -134,19 +148,9 @@ def create_file_button(name):
     :return: 已处理好的按钮对象
     '''
     if name != ' ':
-        if name[-2] == '->':
-            file = name[-1] + ' ' + name[-2] +' ' + name[-3]
-        else:
-            file = name[-1]
-        user_group = name[2] + '/' + name[3]
-        chmod = name[0]
-        file_size = name[4]
-        dates = name[5] + name[6] + '日' + ' ' + name[7]
-        Attrwarp=FileButton(
-            f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}')
+        Attrwarp=FileButton(filename_handling(name))
         w = ThingWithAPopUp(Attrwarp)
         w = Attrwarp.create_appwarp(w)  #对按钮创建Attrwarp
-
     else:
         w = urwid.Button(' ')
         w = urwid.AttrWrap(w, 'button normal', 'file button select')
@@ -173,10 +177,11 @@ class DirButton(urwid.Button):
             font_buttons = create_button_list(*file_dir())
             global exterfonts
             exterfonts._set_widget_list(font_buttons)
+            exterfonts.set_focus(0)
             global original_buttons
             original_buttons = exterfonts._get_widget_list()
             self._emit('click')
-        elif key == ' ':  #空格选取
+        elif key == setting['short_key']['selectedFile']:  #空格选取
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             file_path=datas['Dir']+self.label.strip().split(" ")[0]
@@ -187,8 +192,9 @@ class DirButton(urwid.Button):
             else:
                 self.attrwarp.set_attr('select')
                 file_list.append(file_path)
-        elif key =='ctrl esc':
+        elif key == setting['short_key']['cancelSelected']:
             self.attrwarp.set_attr('dir button select')
+
                 #urwid.AttrWrap(self,'button normal', 'delete')
         else:
             return key
@@ -217,7 +223,7 @@ class FileButton(urwid.Button):
             original_buttons = exterfonts._get_widget_list()
 
 
-        if  key == 'A':  # 一键复制文件内容
+        if  key ==setting['short_key']['copyContent']:  # 一键复制文件内容
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             file_path=datas['Dir']+self.label.strip().split(" ")[0]
@@ -226,7 +232,7 @@ class FileButton(urwid.Button):
             pyperclip.copy(file_content)
         elif key in ('enter',):   #点击文件按钮发送click信号给按钮本身 模拟点击操作
             self._emit('click')
-        elif key == ' ':
+        elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             file_path=datas['Dir']+self.label.strip().split(" ")[0]
@@ -237,7 +243,7 @@ class FileButton(urwid.Button):
             else:
                 self.attrwarp.set_attr('select')
                 file_list.append(file_path)
-        elif key =='ctrl esc':
+        elif key ==  setting['short_key']['cancelSelected']:
             self.attrwarp.set_attr('file button select')
         else:
             return key
@@ -255,7 +261,7 @@ class TermPop(urwid.Terminal):
 
     def keypress(self, size, key):
 
-        if key in ('ctrl q',):  # 判断是否为ctrl q 按钮
+        if key == setting['short_key']['quitTerm'] :  # 判断是否为ctrl q 按钮
 
             Loop.widget = self.view
 
@@ -382,24 +388,20 @@ class TermPop(urwid.Terminal):
 
 
 class PopUpDialog(urwid.Terminal):
-
-
     #signals = ['closed']
     #term=urwid.Terminal(None,encoding='utf-8')
-
     def __init__(self,filename):
         urwid.set_encoding('utf8')
         with open('dir.yaml', 'r') as f:
             datas = yaml.safe_load(f)
 
-        self.__super.__init__((ed,f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
+        self.__super.__init__((setting['editor'],f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
         #self.kp(size,key)
-        if key in ('ctrl q',):      #判断是否为ctrl q 按钮
+        if key == setting['short_key']['quitTerm']: #判断是否为ctrl q 按钮
            self._emit("closed")      #是的话就发出closed信号 关闭弹窗
            #self._emit("close")
-
         if self.terminated:
             return key
 
@@ -538,6 +540,55 @@ class ThingWithAPopUp(urwid.PopUpLauncher):
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
 
+
+class Jump_dir(urwid.WidgetWrap):
+    def jumpop(self,widget):
+        with open('dir.yaml', 'r') as f:
+            datas = yaml.safe_load(f)
+        datas["Dir"]=self.dir.get_edit_text()
+        with open('dir.yaml', 'w') as f:
+            yaml.dump(datas, f)
+        font_buttons = create_button_list(*file_dir())
+        exterfonts._set_widget_list(font_buttons)
+        global original_buttons
+        original_buttons = exterfonts._get_widget_list()
+        self.loop_widget.widget = self.view
+
+
+        # change dir
+    def closepop(self,widget):
+        urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
+        self.loop_widget.widget = self.view
+    def __init__(self, view,loop_widget):
+        self.view = view
+        self.loop_widget=loop_widget
+        choose_dir = urwid.Text("Input Dir：\n")
+        self.dir= urwid.Edit(edit_text="")
+        dir=urwid.AttrWrap(self.dir, 'body')
+        confirm_button = urwid.Button("Go")
+        confirm= urwid.AttrWrap(confirm_button, 'button normal', 'dir button select')
+        closed_button = urwid.Button("Quit")
+        closed= urwid.AttrWrap(closed_button, 'button normal', 'delete')
+        self.jump_list = urwid.Pile([
+            choose_dir,
+            dir,
+            urwid.Divider(),
+            urwid.Divider(),
+            confirm,
+            closed,
+        ])
+        pop_warp=urwid.LineBox(self.jump_list)
+        fill = urwid.Filler(pop_warp)
+        self.exit = urwid.LineBox(fill)
+        urwid.AttrWrap(self.exit, 'body')
+        self.loop_widget.widget = urwid.Overlay(self.exit, self.view, 'center', 62, 'middle', 20)
+        urwid.connect_signal(confirm_button, 'click',
+                             self.jumpop)
+        urwid.connect_signal(closed_button, 'click',
+                             self.closepop)
+
+
+
 #删除文件或者目录
 class Delfile(urwid.WidgetWrap):
     def  delete_file_or_dir(self,widget):
@@ -592,8 +643,6 @@ class Delfile(urwid.WidgetWrap):
                              self.delete_file_or_dir)
         urwid.connect_signal(close_button, 'click',
                              self.delpop)
-
-
 #创建文件或者目录
 class TouchFile(urwid.WidgetWrap):
     signals = ['close']
@@ -670,12 +719,6 @@ class TouchFile(urwid.WidgetWrap):
                              self.delpop)
 
 
-
-
-
-
-
-
 class BigTextDisplay:
     palette = [
 
@@ -703,10 +746,10 @@ class BigTextDisplay:
         return w
 
     def create_edit(self, label, text, fn):
-        w = urwid.Edit(label, text)
-        urwid.connect_signal(w, 'change', fn)
+        edit = urwid.Edit(label, text)
+        urwid.connect_signal(edit, 'change', fn)
         #fn(w)
-        w = urwid.AttrWrap(w, 'edit')
+        w = urwid.AttrWrap(edit, 'edit')
         return w
 
     def set_font_event(self, w, state):
@@ -751,8 +794,7 @@ class BigTextDisplay:
         font_buttons=create_button_list(*file_dir())
         chars = urwid.Divider()
         #os.system(f'echo {len(font_buttons)} > 123')
-        self.fonts = urwid.Pile(font_buttons,
-                            focus_item=1)
+        self.fonts = urwid.Pile(font_buttons)
         global original_buttons
         original_buttons=self.fonts._get_widget_list()  #使用全局变量来承载创建时的所有按钮的原始列表，在变换字符的同时保证都是对原始目录的筛选，避免删除字符无法回退到之前目录下
 
@@ -792,13 +834,14 @@ class BigTextDisplay:
 
 #sed 可替换
         oper=(
-            u'Ctrl+r  Refresh',
-            u'Ctrl+c  Copy files',
-            u'Ctrl+v  Paste file',
-            u'Ctrl+x  Unzip file',
-            u'Ctrl+s  Compress a dir',
+            u'Ctrl+a  Copy the file contents ',
+            u'Ctrl+w  Quit to destop',
             u'Ctrl+t  Term',
-            u'Ctrl+a  Copy file contents ',
+            u'Ctrl+q  Quit to Term',
+            u'Ctrl+r  refresh',
+            u'Ctrl+n  Create a file',
+            u'Ctrl+d  Delete selected files',
+            u'space   Selected files',
             u'?       Help'
         )
 
@@ -853,7 +896,9 @@ class BigTextDisplay:
         self.create_button()
         edit = self.create_edit("", "",
                                 self.edit_change_event)
-        bt = urwid.Pile([bt, edit], focus_item=1)
+
+        self.bt = urwid.Pile([bt, edit], focus_item=1)
+
         files = urwid.Text(f"   文件名称{count_str('文件名称')}权限大小{count_str('权限大小')}用户/组{count_str('用户/组')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
         #pb = urwid.ProgressBar('Begin', 'END') #进度条
         last=urwid.Text(u' ')
@@ -862,7 +907,7 @@ class BigTextDisplay:
         #fill = urwid.Padding(ThingWithAPopUp(), 'center',15)
         #fill=urwid.LineBox(fill)
 
-        l = [bt,files,self.col,last]
+        l = [self.bt,files,self.col,last]
         w = urwid.ListBox(urwid.SimpleListWalker(l))
         w = urwid.AttrWrap(w, 'body')
         hdr = urwid.Text("Lin v1.0 - F8 exits.")
@@ -877,7 +922,7 @@ class BigTextDisplay:
         return w, exit
     def change_data(self):
         while True:
-            time.sleep(1)
+            time.sleep(0.8)
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             self.In.set_text(f'【{datas["Dir"]}】：Location')
@@ -892,7 +937,7 @@ class BigTextDisplay:
     def main(self):
         self.view, self.exit_view = self.setup_view()
         self.loop = urwid.MainLoop(self.view, self.palette,
-            unhandled_input=self.unhandled_input,pop_ups=True,handle_mouse=mouse)  #handle_mouse 开启鼠标点选模式，默认为真不能使用复制粘贴功能
+            unhandled_input=self.unhandled_input,pop_ups=True,handle_mouse=setting['mouse'])  #handle_mouse 开启鼠标点选模式，默认为真不能使用复制粘贴功能
         global Loop
         Loop=self.loop
         threading.Thread(target=self.change_data, args=()).start()
@@ -912,7 +957,13 @@ class BigTextDisplay:
         #     pass
         # if key == 'S':
         #     pass
-        if key == 'C':
+        if key == setting['short_key']['goTo']:
+            Jump_dir(self.view,self.loop)
+            file_list = []
+            return
+
+
+        if key == setting['short_key']['copyFile']:
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -921,7 +972,7 @@ class BigTextDisplay:
             file_list = []
             self.copy=True
             return
-        if key == 'X':
+        if key == setting['short_key']['cut']:
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -930,7 +981,7 @@ class BigTextDisplay:
             file_list = []
             self.copy=False
             return
-        if key == 'V':  #复用
+        if key == setting['short_key']['pasteFile']:  #复用
             try:
                 with open('dir.yaml', 'r') as f:
                     datas = yaml.safe_load(f)
@@ -950,13 +1001,13 @@ class BigTextDisplay:
             except:
                 pass
             return
-        if key == 'ctrl d':
+        if key == setting['short_key']['deleteFile']:
             Delfile(self.view,self.loop)
             return
-        if key == 'ctrl n':
+        if key == setting['short_key']['createFile']:
             TouchFile(self.view,self.loop)
             return
-        if key == 'esc':  #回退目录重新读取按钮们
+        if key == setting['short_key']['backUpdir']:  #回退目录重新读取按钮们
 
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -968,12 +1019,13 @@ class BigTextDisplay:
                 yaml.dump(datas, f)
             font_buttons=create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
-            #筛选回退保证
+            self.fonts.set_focus(0) #筛选回退显示在第一个上
+
 
             #global file_list
             file_list = []
             original_buttons = self.fonts._get_widget_list()
-        if key == 'ctrl t':
+        if key == setting['short_key']['term']:
             '''
             按键ctrl+t 召唤终端使用overload覆盖层的方式让终端浮于view层上
             '''
@@ -983,7 +1035,7 @@ class BigTextDisplay:
             exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)  #这里300和300不设置会报错
             self.loop.widget = exit
             return
-        if key == 'ctrl r':  #刷新
+        if key == setting['short_key']['refresh']:  #刷新
             font_buttons=create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             #global file_list
@@ -994,14 +1046,41 @@ class BigTextDisplay:
             def fn(view,loop,new):  #这里的传参为顺序传参 传多个参数最后一个一直都是要操作的对象 这里是button
                 loop.widget=view
             #help_info=urwid.Text('Command Help')  #需要制作退出按钮
+
             quit_button = urwid.Button('Quit')
             urwid.connect_signal(quit_button,'click',fn,weak_args=[self.view,self.loop]) #传参数给fn函数
-            quit_button=urwid.Filler(quit_button,'top')
-            help_info = urwid.Overlay(quit_button, self.view, 'center', 300, 'middle', 300)  # 这里300和300不设置会报错
+            #quit_button=urwid.Filler(quit_button,'top')
+            self.oper = (
+                u'Shortcuts Documentation:',
+                ' ',
+                u'    Ctrl+r  Refresh',
+                u'    Ctrl+s  Compress a dir',
+                u'    Ctrl+a  Copy the file contents ',
+                u'    Ctrl+w  Quit to destop',
+                u'    Ctrl+t  Term',
+                u'    Ctrl+q  Quit to Term',
+                u'    Ctrl+r  refresh',
+                u'    Ctrl+n  Create a file',
+                u'    Ctrl+d  Delete selected files',
+                u'    shift+c  Copy selected files',
+                u'    shift+v  Paste file',
+                u'    shift+x  Cut selected file',
+                u'    shift+o  Go to the directory' ,
+                u'    space  selected files',
+                u'    Ctrl+esc  Cancel selected files',
+                u'    Esc  back to upper level directory ',
+                ' ',
+                u'?       Help',
+
+            )
+            l = ctrl_opeater(self.oper)
+            l[-1] = quit_button
+            help_info = urwid.ListBox(urwid.SimpleListWalker(l))
+            help_info = urwid.Overlay(help_info, self.view, 'center', 300, 'middle', 300)  # 这里300和300不设置会报错
             self.loop.widget = help_info
             return
         #if key == 'f8':
-        if key == 'ctrl w':
+        if key == setting['short_key']['quitDestop']:
             self.loop.widget = self.exit_view
             return True
         if self.loop.widget != self.exit_view:

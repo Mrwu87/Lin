@@ -1,0 +1,19 @@
+editor: vi
+mouse: false
+short_key:
+  cut: X
+  refresh: ctrl r
+  copyContent: A
+  quitDestop: ctrl w
+  term: ctrl t
+  quitTerm: ctrl q
+  createFile: ctrl n
+  deleteFile: ctrl d
+  copyFile: C
+  pasteFile: V
+  goTo: O
+  selectedFile: ' '
+  cancelSelected: ctrl esc
+  backUpdir: esc
+  zip: Z
+  unzip: R
