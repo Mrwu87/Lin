@@ -14,6 +14,9 @@ short_key:
   goTo: O
   selectedFile: ' '
   cancelSelected: ctrl esc
-  backUpdir: esc
+  backdir: esc
+  backUpfile: B
   zip: Z
-  unzip: R
+  unzip: U
+  tail: T
+  less: L

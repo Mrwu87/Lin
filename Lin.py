@@ -13,6 +13,7 @@ with open('setting.yaml','r') as config:
 Loop=None               #使用loop来承载 self.loop 对象
 exterfonts=None         #原始外部font 可以使用_get_widget_list 或者 _set_widget_list方法来修改一整个按钮列表
 original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮列表  代表筛选前的按钮列表
+views=None
 file_list=[]            #用于承载选择的文件列表
 
 
@@ -102,8 +103,6 @@ def create_button_list(file, dir):
         else:
             font_buttons.append(rb)
     return font_buttons
-
-
 def filename_handling(name):
     if name[-2] == '->':
         # os.system(f'echo {name} >> 123')
@@ -123,7 +122,6 @@ def filename_handling(name):
     elif len(name[5]) < 3:
         dates = '0' + name[5] + name[6] + '日' + ' ' + name[7]
     return f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
-
 def create_dir_button(name):
     '''
         #处理按钮的显示页面部分，显示按钮的文字内容再通过调用传递创建按钮类中
@@ -167,11 +165,12 @@ class DirButton(urwid.Button):
 
 
     def keypress(self, size, key):
+        dirname = self.label.strip().split(" ")[0]
         if key in ('enter',) :
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             with open('dir.yaml', 'w') as f:
-                datas['Dir']=datas["Dir"] + self.label.strip().split(" ")[0]
+                datas['Dir']=datas["Dir"] + dirname
                 yaml.dump(datas,f)
                 #os.system(f'ls -alh {datas["Dir"]}{self.label.strip().split(" ")[0]} > file.txt')
             font_buttons = create_button_list(*file_dir())
@@ -180,11 +179,11 @@ class DirButton(urwid.Button):
             exterfonts.set_focus(0)
             global original_buttons
             original_buttons = exterfonts._get_widget_list()
-            self._emit('click')
+            #self._emit('click')
         elif key == setting['short_key']['selectedFile']:  #空格选取
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            file_path=datas['Dir']+self.label.strip().split(" ")[0]
+            file_path=datas['Dir']+dirname
             #os.system(f"echo '{file_list}' >> 123")
             if self.attrwarp.get_attr() == 'select':
                 self.attrwarp.set_attr('button normal')
@@ -210,14 +209,40 @@ class FileButton(urwid.Button):
     def keypress(self, size, key):
         # if key in ('ctrl p',) :
         #     os.system(f'echo {self.label.strip().split(" ")[-1]} > wulinwei1.py')
-        if  key == 'B':  # 一键备份文件
+        filename=self.label.strip().split(" ")[0]
+
+        if key == setting['short_key']['unzip']:
+            # Zipfile(self.view,self.loop)
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            backup_file=datas['Dir']+self.label.strip().split(" ")[0]+'.bak'
-            current_file=datas['Dir']+self.label.strip().split(" ")[0]
+            if filename.split('.')[-1] == 'tgz' or  filename.split('.')[-1]=='gz' and filename.split('.')[-2]=='tar' :
+                #os.system(f"echo {datas['Dir']}{filename} >123")
+                os.system(f'tar -zxf {datas["Dir"]}{filename} -C {datas["Dir"]} ')
+                global original_buttons
+                font_buttons = create_button_list(*file_dir())
+                exterfonts._set_widget_list(font_buttons)
+                original_buttons = exterfonts._get_widget_list()
+            return
+        if key == setting['short_key']['tail']:
+            global Loop
+            global views
+            tail_term=Showfile(views,filename,'tail')
+            exit = urwid.LineBox(tail_term)
+            exit = urwid.Overlay(exit, views, 'center', 150, 'middle', 150)
+            Loop.widget = exit
+        if key == setting['short_key']['less']:
+            less_term=Showfile(views,filename,'less')
+            exit = urwid.LineBox(less_term)
+            exit = urwid.Overlay(exit, views, 'center', 150, 'middle', 150)
+            Loop.widget = exit
+        if  key == setting['short_key']['backUpfile']:  # 一键备份文件
+            with open('dir.yaml', 'r') as f:
+                datas = yaml.safe_load(f)
+            backup_file=datas['Dir']+filename+'.bak'
+            current_file=datas['Dir']+filename
             os.system(f"cp -af '{current_file}' '{backup_file}' ")
             #exterfonts._set_widget_list()
-            global original_buttons
+            #global original_buttons
             font_buttons = create_button_list(*file_dir())
             exterfonts._set_widget_list(font_buttons)
             original_buttons = exterfonts._get_widget_list()
@@ -226,7 +251,7 @@ class FileButton(urwid.Button):
         if  key ==setting['short_key']['copyContent']:  # 一键复制文件内容
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            file_path=datas['Dir']+self.label.strip().split(" ")[0]
+            file_path=datas['Dir']+filename
             with open(f'{file_path}') as f:
                 file_content = f.read()
             pyperclip.copy(file_content)
@@ -235,7 +260,7 @@ class FileButton(urwid.Button):
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            file_path=datas['Dir']+self.label.strip().split(" ")[0]
+            file_path=datas['Dir']+filename
             #os.system(f"echo '{file_list}' >> 123")
             if self.attrwarp.get_attr()=='select':
                 self.attrwarp.set_attr('button normal')
@@ -247,6 +272,144 @@ class FileButton(urwid.Button):
             self.attrwarp.set_attr('file button select')
         else:
             return key
+
+class Showfile(urwid.Terminal):
+    def __init__(self,view,filename,exec):
+        self.view = view
+        urwid.set_encoding('utf8')
+        with open('dir.yaml', 'r') as f:
+            datas = yaml.safe_load(f)
+        #os.system(f"echo '{filename}' > 123")
+        if exec == 'tail':
+            self.__super.__init__(('tail','-f', '-n 300',f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
+        elif exec == 'less':
+            self.__super.__init__(('less','-N','-m',f'{datas["Dir"] + filename}'), encoding='utf-8')  # 创建一个终端
+        self.main_loop=Loop   #这一步让终端流畅运行
+    def keypress(self, size, key):
+
+        if key == setting['short_key']['quitTerm'] :  # 判断是否为ctrl q 按钮
+
+            Loop.widget = self.view
+
+        if self.terminated:
+            return key
+
+        if key == "window resize":
+            width, height = size
+            self.touch_term(width, height)
+            return
+
+        if (self.last_key == self.escape_sequence
+                and key == self.escape_sequence):
+            # escape sequence pressed twice...
+            self.last_key = key
+            self.keygrab = True
+            # ... so pass it to the terminal
+        elif self.keygrab:
+            if self.escape_sequence == key:
+                # stop grabbing the terminal
+                self.keygrab = False
+                self.last_key = key
+                return
+        else:
+            if key == 'page up':
+                self.term.scroll_buffer()
+                self.last_key = key
+                self._invalidate()
+                return
+            elif key == 'page down':
+                self.term.scroll_buffer(up=False)
+                self.last_key = key
+                self._invalidate()
+                return
+            elif (self.last_key == self.escape_sequence
+                  and key != self.escape_sequence):
+                # hand down keypress directly after ungrab.
+                self.last_key = key
+                return key
+            elif self.escape_sequence == key:
+                # start grabbing the terminal
+                self.keygrab = True
+                self.last_key = key
+                return
+            elif self._command_map[key] is None or key == 'enter':
+                # printable character or escape sequence means:
+                # lock in terminal...
+                self.keygrab = True
+                # ... and do key processing
+            else:
+                # hand down keypress
+                self.last_key = key
+                return key
+
+        self.last_key = key
+
+        self.term.scroll_buffer(reset=True)
+        from urwid.compat import ord2, chr2, B, bytes, PYTHON3, xrange
+
+        # EOF = B('')
+        ESC = chr(27)
+
+        KEY_TRANSLATIONS = {
+            'enter': chr(13),
+            'backspace': chr(127),
+            'tab': chr(9),
+            'esc': ESC,
+            'up': ESC + '[A',
+            'down': ESC + '[B',
+            'right': ESC + '[C',
+            'left': ESC + '[D',
+            'home': ESC + '[1~',
+            'insert': ESC + '[2~',
+            'delete': ESC + '[3~',
+            'end': ESC + '[4~',
+            'page up': ESC + '[5~',
+            'page down': ESC + '[6~',
+
+            'f1': ESC + '[[A',
+            'f2': ESC + '[[B',
+            'f3': ESC + '[[C',
+            'f4': ESC + '[[D',
+            'f5': ESC + '[[E',
+            'f6': ESC + '[17~',
+            'f7': ESC + '[18~',
+            'f8': ESC + '[19~',
+            'f9': ESC + '[20~',
+            'f10': ESC + '[21~',
+            'f11': ESC + '[23~',
+            'f12': ESC + '[24~',
+        }
+
+        KEY_TRANSLATIONS_DECCKM = {
+            'up': ESC + 'OA',
+            'down': ESC + 'OB',
+            'right': ESC + 'OC',
+            'left': ESC + 'OD',
+            'f1': ESC + 'OP',
+            'f2': ESC + 'OQ',
+            'f3': ESC + 'OR',
+            'f4': ESC + 'OS',
+            'f5': ESC + '[15~',
+        }
+        if key.startswith("ctrl "):
+            if key[-1].islower():
+                key = chr(ord(key[-1]) - ord('a') + 1)
+            else:
+                key = chr(ord(key[-1]) - ord('A') + 1)
+        else:
+            if self.term_modes.keys_decckm and key in KEY_TRANSLATIONS_DECCKM:
+                key = KEY_TRANSLATIONS_DECCKM.get(key)
+            else:
+                key = KEY_TRANSLATIONS.get(key, key)
+
+        # ENTER transmits both a carriage return and linefeed in LF/NL mode.
+        if self.term_modes.lfnl and key == "\x0d":
+            key += "\x0a"
+
+        if PYTHON3:
+            key = key.encode(self.encoding, 'ignore')
+
+        os.write(self.master, key)
 
 
 class TermPop(urwid.Terminal):
@@ -545,7 +708,10 @@ class Jump_dir(urwid.WidgetWrap):
     def jumpop(self,widget):
         with open('dir.yaml', 'r') as f:
             datas = yaml.safe_load(f)
-        datas["Dir"]=self.dir.get_edit_text()
+        if self.dir.get_edit_text()[-1] == '/':
+            datas["Dir"]=self.dir.get_edit_text()
+        else:
+            datas["Dir"] = self.dir.get_edit_text()+'/'
         with open('dir.yaml', 'w') as f:
             yaml.dump(datas, f)
         font_buttons = create_button_list(*file_dir())
@@ -593,8 +759,8 @@ class Jump_dir(urwid.WidgetWrap):
 class Delfile(urwid.WidgetWrap):
     def  delete_file_or_dir(self,widget):
             global file_list
-            file_list=[ f"'{i}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
-            files = " ".join(file_list)
+            files=[ f"'{i}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            files = " ".join(files)
             command_stat = os.system(f"rm -rf  {files}  ")
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
@@ -643,6 +809,111 @@ class Delfile(urwid.WidgetWrap):
                              self.delete_file_or_dir)
         urwid.connect_signal(close_button, 'click',
                              self.delpop)
+#压缩文件
+class Zipfile(urwid.WidgetWrap):
+
+    def  zip_file_or_dir(self,widget):
+
+
+            for i in self.bgroup:
+                if i.state == True:
+                    suffix = i.get_label()
+            global file_list
+            files=[ f"'{i}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            files = " ".join(files)
+            dirname=self.Dir.get_edit_text()
+            zipname=self.zipname.get_edit_text()
+            if suffix == 'tgz' or suffix ==  'tar.gz':
+                compress_command=os.system(f"tar -zcf  {dirname}{zipname}.{suffix}  {files}")
+            elif suffix == 'rar':
+                check_rar = os.system(f"rar -v 2> /dev/null")
+                #os.system(f" echo '{check_rar}' >> 123")
+                if check_rar != 0:
+                    self.pile._get_widget_list().append(urwid.Text(' Not install rar!'))
+                    compress_command=1
+                else:
+                    compress_command = os.system(f"rar a  {dirname}{zipname}.{suffix}  {files}")
+            elif suffix == 'zip':
+                check_rar = os.system(f"zip -v 2> /dev/null")
+                if check_rar != 0:
+                    self.pile._get_widget_list().append(urwid.Text(' Not install Zip!'))
+                    compress_command = 1
+                else:
+                    compress_command = os.system(f"zip -q -r  {dirname}{zipname}.{suffix}  {files}")
+            elif suffix == 'tar':
+                compress_command = os.system(f"tar -cf  {dirname}{zipname}.{suffix}  {files}")
+
+            if compress_command != 0:
+
+                    # self.pile._get_widget_list()[-1] = urwid.Text(' Compress Failed!')
+                    self.pile._get_widget_list().append(urwid.Text(' Compress Failed!'))
+
+            else:
+                file_list=[]
+                font_buttons = create_button_list(*file_dir())
+                exterfonts._set_widget_list(font_buttons)
+                global original_buttons
+                original_buttons = exterfonts._get_widget_list()
+                self.loop_widget.widget = self.view
+
+    def zipop(self,widget):
+        urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
+        self.loop_widget.widget = self.view
+    def __init__(self, view,loop_widget):
+        self.view = view
+        self.loop_widget=loop_widget
+        filename_txt = urwid.Text("Compress these files：\n")
+        self.filename = urwid.Text("")
+        global file_list
+        files='\n'.join(file_list)
+        self.filename.set_text(files)
+        filename=urwid.AttrWrap(self.filename, 'body')
+
+        with open('dir.yaml','r') as f:
+            datas=yaml.safe_load(f)
+        dir_name = urwid.Text('Save:')
+        self.Dir = urwid.Edit(edit_text=datas["Dir"])  #目录
+        Dir = urwid.AttrWrap(self.Dir, 'body')
+        zip_name_txt=urwid.Text('Package name')
+        self.zipname = urwid.Edit("")                 #压缩名
+        zipname = urwid.AttrWrap(self.zipname, 'body')
+        self.bgroup = []
+        choose = urwid.Text("Choose mode：\n")
+        tar= urwid.RadioButton(self.bgroup, 'tar')
+        tar_gz=urwid.RadioButton(self.bgroup, 'tar.gz')
+        tgz=urwid.RadioButton(self.bgroup, 'tgz')
+        zip=urwid.RadioButton(self.bgroup, 'zip')
+        #bzip2 = urwid.RadioButton(self.bgroup, 'bzip2')
+        rar=urwid.RadioButton(self.bgroup, 'rar')
+        compress_button = urwid.Button("Compress")
+        compress=urwid.AttrWrap(compress_button, 'button normal', 'dir button select')
+        close_button = urwid.Button("Quit")
+        closed_button = urwid.AttrWrap(close_button, 'button normal', 'delete')
+        self.pile = urwid.Pile([
+            filename_txt,
+            filename,
+            urwid.Divider(),
+            zip_name_txt,
+            zipname,
+            urwid.Divider(),
+            dir_name,
+            Dir,
+            urwid.Divider(),
+            choose,
+            tar,tar_gz,tgz,rar,zip,
+            urwid.Divider(),
+            compress,
+            closed_button])
+        pop_warp=urwid.LineBox(self.pile)
+        fill = urwid.Filler(pop_warp)
+        self.exit = urwid.LineBox(fill)
+        urwid.AttrWrap(self.exit, 'body')
+        self.loop_widget.widget = urwid.Overlay(self.exit, self.view, 'center', 62, 'middle', 32)
+        urwid.connect_signal(compress_button, 'click',
+                             self.zip_file_or_dir)
+        urwid.connect_signal(close_button, 'click',
+                             self.zipop)
+
 #创建文件或者目录
 class TouchFile(urwid.WidgetWrap):
     signals = ['close']
@@ -940,6 +1211,8 @@ class BigTextDisplay:
             unhandled_input=self.unhandled_input,pop_ups=True,handle_mouse=setting['mouse'])  #handle_mouse 开启鼠标点选模式，默认为真不能使用复制粘贴功能
         global Loop
         Loop=self.loop
+        global views
+        views=self.view
         threading.Thread(target=self.change_data, args=()).start()
         self.loop.run()
 
@@ -963,7 +1236,7 @@ class BigTextDisplay:
             return
 
 
-        if key == setting['short_key']['copyFile']:
+        if key == setting['short_key']['copyFile']:  # C
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -972,7 +1245,7 @@ class BigTextDisplay:
             file_list = []
             self.copy=True
             return
-        if key == setting['short_key']['cut']:
+        if key == setting['short_key']['cut']: # X
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -1001,21 +1274,28 @@ class BigTextDisplay:
             except:
                 pass
             return
-        if key == setting['short_key']['deleteFile']:
+        if key == setting['short_key']['zip']:
+            Zipfile(self.view,self.loop)
+            return
+
+        if key == setting['short_key']['deleteFile']:  #ctrl d
             Delfile(self.view,self.loop)
             return
-        if key == setting['short_key']['createFile']:
+        if key == setting['short_key']['createFile']:  #ctrl n
             TouchFile(self.view,self.loop)
             return
-        if key == setting['short_key']['backUpdir']:  #回退目录重新读取按钮们
+        if key == setting['short_key']['backdir']:  #回退目录重新读取按钮们
 
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             Dir=[ii for ii in datas['Dir'].split('/') if (len(str(ii)) != 0)]
-            #os.system(f'echo "{Dir}" > 123')
+
             with open('dir.yaml', 'w') as f:
                 if Dir!=[]: #如果Dir不是根号的话，就进行目录处理
-                    datas['Dir'] = datas['Dir'].replace(Dir[-1]+'/','')
+                    datas['Dir'] ='/'+'/'.join(Dir[:-1])+'/'   # 修复bug-102
+                    if datas['Dir'] == '//':               #退到最后一个目录时由于头尾相加会造成//
+                        datas['Dir'] = '/'
+                    #datas['Dir'] = datas['Dir'].replace(Dir[-1]+'/','')  # bug-102: 下级目录中如果有同名目录会全部删除
                 yaml.dump(datas, f)
             font_buttons=create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
