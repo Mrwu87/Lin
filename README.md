@@ -1,8 +1,5 @@
 # Lin
 
-  🐱 Use TUI style to manage files!
-
-## 介绍
 ![image](https://github.com/Mrwu87/Lin/blob/master/linsc.png)
 
 #### 该项目开发一个文件管理终端UI工具，目的是为了让使用者能更快捷的操作终端文件。秉承快捷实用的原则，设置了多个快捷键可做一系列的操作，开始时可能会感到不习惯使用随着使用次数增多我相信你会喜欢它的。（当然你也可通过fork该项目去打造合适自己的工具）
