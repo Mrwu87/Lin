@@ -8,31 +8,31 @@
 
 ## 特点
 
-#### - 一键复制文件内容
+1. 一键复制文件内容
 
-#### 一键备份文件
+2. 一键备份文件
 
-#### 自动解压多个文件/文件夹
+3. 自动解压多个文件/文件夹
 
-#### 压缩多个文件/文件夹
+4. 压缩多个文件/文件夹
 
-#### 图形化展示文件
+5. 图形化展示文件
 
-#### 支持增删移查文件内容
+6. 支持增删移查文件内容
 
-#### 实时查看文件变换
+7. 实时查看文件变换
 
-#### 终端页面
+8. 终端页面
 
-#### 复制/剪切多个文件/文件夹
+9. 复制/剪切多个文件/文件夹
 
-#### 筛选文件/文件夹功能
+10. 筛选文件/文件夹功能
 
-#### cpu 使用检测
+11. cpu 使用检测
 
-#### 内存使用检测
+12. 内存使用检测
 
-#### and more featrues ......
+   ...............
 
 
 ## 快捷键
@@ -53,15 +53,40 @@
 ---
 
 
-## 如何开始
+## 快速开始
+
+## 安装依赖包(可选)
+#### pip install -r requirements.txt
+## 运行程序
 
 #### python3 Lin.py
-### 配置文件
+## 配置文件(可选)
+
 #### 编辑setting.yaml
 
 ```
-
-
+editor: vi        #设定你的编辑器
+mouse: false      #开启鼠标模式（注意：这里开启之后就无法选取文字）
+short_key:        #快捷键设置
+  cut: X
+  refresh: ctrl r
+  copyContent: A
+  quitDestop: ctrl w
+  term: ctrl t
+  quitTerm: ctrl q
+  createFile: ctrl n
+  deleteFile: ctrl d
+  copyFile: C
+  pasteFile: V
+  goTo: O
+  selectedFile: ' '
+  cancelSelected: ctrl esc
+  backdir: esc
+  backUpfile: B
+  zip: Z
+  unzip: U
+  tail: T
+  less: L
 
 ```
 
