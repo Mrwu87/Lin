@@ -1,4 +1,4 @@
-# Lin-Use TUI style to manage files!
+# Lin - Use TUI style to manage files!
 
 ![image](https://github.com/Mrwu87/Lin/blob/master/linsc.png)
 
