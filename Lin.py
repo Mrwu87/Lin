@@ -618,7 +618,7 @@ class PopUpDialog(urwid.Terminal):
 
         self.last_key = key
 
-        self.term.scroll_buffer(reset=True)
+        #self.term.scroll_buffer(reset=True)  #bug scroll_buffer为none
         from urwid.compat import ord2, chr2, B, bytes, PYTHON3, xrange
 
         #EOF = B('')
@@ -697,8 +697,6 @@ class ThingWithAPopUp(urwid.PopUpLauncher):
         urwid.connect_signal(pop_up, 'closed',
                              lambda button: self.close_pop_up())              #假如收到弹窗关闭信号就关闭弹窗
         return pop_up
-
-
 
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
@@ -813,8 +811,6 @@ class Delfile(urwid.WidgetWrap):
 class Zipfile(urwid.WidgetWrap):
 
     def  zip_file_or_dir(self,widget):
-
-
             for i in self.bgroup:
                 if i.state == True:
                     suffix = i.get_label()
