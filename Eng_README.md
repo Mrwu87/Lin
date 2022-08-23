@@ -5,7 +5,7 @@
 ### [Lin](https://github.com/Mrwu87/Lin) as a file management terminal UI tool, in order to allow users to operate terminal files more quickly. Adhering to the principle of quick and practical, there are several shortcut keys to do a series of operations, you may feel uncomfortable at the beginning, and as you use it more often, I believe you will like the efficiency it brings
 
 ## Language
-####  &nbsp; &nbsp;[中文](README.md) &nbsp; [English](Eng_readme.md)
+####  &nbsp; &nbsp;[中文](README.md) &nbsp; [English](ENG_README.md)
 
 ## Features
 
