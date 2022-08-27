@@ -8,6 +8,7 @@ import yaml
 import pyperclip
 
 
+
 with open('setting.yaml','r') as config:
     setting=yaml.safe_load(config)
 Loop=None               #使用loop来承载 self.loop 对象
@@ -54,7 +55,10 @@ def file_dir():
     with open('dir.yaml', 'r') as f:
         datas = yaml.safe_load(f)
     dir_path=datas['Dir']
-    output = os.popen(f"ls -lAhF '{dir_path}'")
+    if setting['show_hide_files']:
+        output = os.popen(f"ls -lAhF '{dir_path}'")
+    else:
+        output = os.popen(f"ls -lhF '{dir_path}'")
     # print(output)
     dir = []
     file = []
@@ -78,6 +82,17 @@ def file_dir():
         else:
             file.append(output_list)
     return file, dir
+
+
+def reload_dir():
+    font_buttons = create_button_list(*file_dir())
+    exterfonts._set_widget_list(font_buttons)
+    global original_buttons
+    global file_list
+    original_buttons = exterfonts._get_widget_list()
+    file_list = []
+    return exterfonts
+
 def create_button_list(file, dir):
     font_buttons=[]
     '''
@@ -173,12 +188,14 @@ class DirButton(urwid.Button):
                 datas['Dir']=datas["Dir"] + dirname
                 yaml.dump(datas,f)
                 #os.system(f'ls -alh {datas["Dir"]}{self.label.strip().split(" ")[0]} > file.txt')
-            font_buttons = create_button_list(*file_dir())
-            global exterfonts
-            exterfonts._set_widget_list(font_buttons)
-            exterfonts.set_focus(0)
-            global original_buttons
-            original_buttons = exterfonts._get_widget_list()
+            # font_buttons = create_button_list(*file_dir())
+            # global exterfonts
+            # exterfonts._set_widget_list(font_buttons)
+            # exterfonts.set_focus(0)
+            # global original_buttons
+            # original_buttons = exterfonts._get_widget_list()
+            fonts=reload_dir()
+            fonts.set_focus(0)
             #self._emit('click')
         elif key == setting['short_key']['selectedFile']:  #空格选取
             with open('dir.yaml', 'r') as f:
@@ -218,10 +235,14 @@ class FileButton(urwid.Button):
             if filename.split('.')[-1] == 'tgz' or  filename.split('.')[-1]=='gz' and filename.split('.')[-2]=='tar' :
                 #os.system(f"echo {datas['Dir']}{filename} >123")
                 os.system(f'tar -zxf {datas["Dir"]}{filename} -C {datas["Dir"]} ')
-                global original_buttons
-                font_buttons = create_button_list(*file_dir())
-                exterfonts._set_widget_list(font_buttons)
-                original_buttons = exterfonts._get_widget_list()
+                # global original_buttons
+                # font_buttons = create_button_list(*file_dir())
+                # exterfonts._set_widget_list(font_buttons)
+                # original_buttons = exterfonts._get_widget_list()
+                reload_dir()
+            if filename.split('.')[-1] == 'zip' :
+                os.system(f'unzip  {datas["Dir"]}{filename} -d {datas["Dir"]}  2>&1 > /dev/null ')
+                reload_dir()
             return
         if key == setting['short_key']['tail']:
             global Loop
@@ -243,9 +264,11 @@ class FileButton(urwid.Button):
             os.system(f"cp -af '{current_file}' '{backup_file}' ")
             #exterfonts._set_widget_list()
             #global original_buttons
-            font_buttons = create_button_list(*file_dir())
-            exterfonts._set_widget_list(font_buttons)
-            original_buttons = exterfonts._get_widget_list()
+
+            # font_buttons = create_button_list(*file_dir())
+            # exterfonts._set_widget_list(font_buttons)
+            # original_buttons = exterfonts._get_widget_list()
+            reload_dir()
 
 
         if  key ==setting['short_key']['copyContent']:  # 一键复制文件内容
@@ -712,10 +735,12 @@ class Jump_dir(urwid.WidgetWrap):
             datas["Dir"] = self.dir.get_edit_text()+'/'
         with open('dir.yaml', 'w') as f:
             yaml.dump(datas, f)
-        font_buttons = create_button_list(*file_dir())
-        exterfonts._set_widget_list(font_buttons)
-        global original_buttons
-        original_buttons = exterfonts._get_widget_list()
+        # font_buttons = create_button_list(*file_dir())
+        # exterfonts._set_widget_list(font_buttons)
+        # global original_buttons
+        # original_buttons = exterfonts._get_widget_list()
+        fonts=reload_dir()
+        fonts.set_focus(0)
         self.loop_widget.widget = self.view
 
 
@@ -763,12 +788,12 @@ class Delfile(urwid.WidgetWrap):
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
             else:
-                file_list=[]
-                font_buttons = create_button_list(*file_dir())
-                #exterfonts = self.fonts
-                exterfonts._set_widget_list(font_buttons)
-                global original_buttons
-                original_buttons = exterfonts._get_widget_list()
+                # file_list=[]
+                # font_buttons = create_button_list(*file_dir())
+                # exterfonts._set_widget_list(font_buttons)
+                # global original_buttons
+                # original_buttons = exterfonts._get_widget_list()
+                reload_dir()
                 self.loop_widget.widget = self.view
     def delpop(self,widget):
         urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
@@ -845,11 +870,12 @@ class Zipfile(urwid.WidgetWrap):
                     self.pile._get_widget_list().append(urwid.Text(' Compress Failed!'))
 
             else:
-                file_list=[]
-                font_buttons = create_button_list(*file_dir())
-                exterfonts._set_widget_list(font_buttons)
-                global original_buttons
-                original_buttons = exterfonts._get_widget_list()
+                # file_list=[]
+                # font_buttons = create_button_list(*file_dir())
+                # exterfonts._set_widget_list(font_buttons)
+                # global original_buttons
+                # original_buttons = exterfonts._get_widget_list()
+                reload_dir()
                 self.loop_widget.widget = self.view
 
     def zipop(self,widget):
@@ -932,10 +958,11 @@ class TouchFile(urwid.WidgetWrap):
         if command_stat!=0:
             self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions or dir not exist '))
         else:
-            font_buttons = create_button_list(*file_dir())
-            exterfonts._set_widget_list(font_buttons)
-            global original_buttons
-            original_buttons = exterfonts._get_widget_list()
+            # font_buttons = create_button_list(*file_dir())
+            # exterfonts._set_widget_list(font_buttons)
+            # global original_buttons
+            # original_buttons = exterfonts._get_widget_list()
+            reload_dir()
             self.loop_widget.widget = self.view
 
     def __init__(self, view,loop_widget):
@@ -996,16 +1023,20 @@ class BigTextDisplay:
         ('dir button select', 'white', 'dark green'),
         ('button disabled','dark gray','dark blue'),
         ('edit',         'light gray', 'black'),
-        ('bigtext',      'black',      'dark magenta'),
+        # ('bigtext',      'black',      'dark magenta'),
         ('chars',        'light gray', 'black'),
-        ('chars_bg', 'light gray', 'dark magenta'),
+        # ('chars_bg', 'light gray', 'dark magenta'),
         ('exit',         'white',      'dark cyan'),
         ('delete', 'black', 'dark red'),
         ('select', 'black', 'yellow'),
         ]
-
-
-
+    try:
+        skin=setting['choose_skin']
+        palette.append(setting['skin'][skin]['bigtext'])  #
+        palette.append(setting['skin'][skin]['chars_bg'])
+    except:
+        palette.append(setting['skin']['gray_black']['bigtext'])
+        palette.append(setting['skin']['gray_black']['chars_bg'])
 
     def create_disabled_radio_button(self, name):
         w = urwid.Text("    " + name + " (UTF-8 mode required)")
@@ -1045,7 +1076,7 @@ class BigTextDisplay:
             #os.system(f"echo {button_label} >> 123")
             #
             import re
-            if re.findall(f'(.*{label}.*)', button_label):  #匹配项目会出现在列表如匹配apache 列表为['apache']
+            if re.findall(f'(.*{label}.*)', button_label,re.IGNORECASE):  #匹配项目会出现在列表如匹配apache 列表为['apache']
                 font_buttons.append(buttons)
         if font_buttons==[]:                  #在没有匹配项时添加两个空白的文件按钮
             font_buttons=[urwid.Button(''),urwid.Button(' ')]
@@ -1189,10 +1220,10 @@ class BigTextDisplay:
         return w, exit
     def change_data(self):
         while True:
-            time.sleep(0.8)
+            time.sleep(1)
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
-            self.In.set_text(f'【{datas["Dir"]}】：Location')
+            self.In.set_text(f'【 {datas["Dir"]} 】：Location')
             dateTime_p = datetime.datetime.now()
             str_p = datetime.datetime.strftime(dateTime_p, '%Y-%m-%d %H:%M:%S')
             self.dates.set_text(str_p)
@@ -1218,8 +1249,6 @@ class BigTextDisplay:
         self.copy=False
         global file_list
         global original_buttons
-        # if key == 'T':
-        #     pass
         # if key == 'M':
         #     pass
         # if key == 'G':
@@ -1237,7 +1266,6 @@ class BigTextDisplay:
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
             self.copy_file_list=file_list
-            # os.system(f"echo '{self.copy_file_list}' > 123")
             file_list = []
             self.copy=True
             return
@@ -1263,10 +1291,11 @@ class BigTextDisplay:
                         os.system(f"mv '{file_path}' '{current_path}' 2> /dev/null")
                 else:
                     return
-                font_buttons = create_button_list(*file_dir())
-                self.fonts._set_widget_list(font_buttons)
-                original_buttons = self.fonts._get_widget_list()
-                self.copy_file_list = file_list
+                # font_buttons = create_button_list(*file_dir())
+                # self.fonts._set_widget_list(font_buttons)
+                # original_buttons = self.fonts._get_widget_list()
+                # self.copy_file_list = file_list
+                reload_dir()
             except:
                 pass
             return
@@ -1293,14 +1322,14 @@ class BigTextDisplay:
                         datas['Dir'] = '/'
                     #datas['Dir'] = datas['Dir'].replace(Dir[-1]+'/','')  # bug-102: 下级目录中如果有同名目录会全部删除
                 yaml.dump(datas, f)
-            font_buttons=create_button_list(*file_dir())
-            self.fonts._set_widget_list(font_buttons)
-            self.fonts.set_focus(0) #筛选回退显示在第一个上
-
-
-            #global file_list
-            file_list = []
-            original_buttons = self.fonts._get_widget_list()
+            # font_buttons=create_button_list(*file_dir())
+            # self.fonts._set_widget_list(font_buttons)
+            # self.fonts.set_focus(0) #筛选回退显示在第一个上
+            # #global file_list
+            # file_list = []
+            # original_buttons = self.fonts._get_widget_list()
+            fonts=reload_dir()
+            fonts.set_focus(0)
         if key == setting['short_key']['term']:
             '''
             按键ctrl+t 召唤终端使用overload覆盖层的方式让终端浮于view层上
@@ -1311,12 +1340,9 @@ class BigTextDisplay:
             exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)  #这里300和300不设置会报错
             self.loop.widget = exit
             return
+
         if key == setting['short_key']['refresh']:  #刷新
-            font_buttons=create_button_list(*file_dir())
-            self.fonts._set_widget_list(font_buttons)
-            #global file_list
-            original_buttons = self.fonts._get_widget_list()  #筛选使用的是原始按钮列表携带选中标记，这个是防止新创建的一层按钮和筛选的不是同一个按钮列表 筛选出现选中按钮实际没在列表中，取消按钮选中则报错
-            file_list = []
+            reload_dir()
             return
         if key == '?':
             def fn(view,loop,new):  #这里的传参为顺序传参 传多个参数最后一个一直都是要操作的对象 这里是button

@@ -1,10 +1,10 @@
-#权限 文件和目录的权限修改
+show_hide_files: false
 editor: vi
 mouse: false
 short_key:
   cut: X
   refresh: ctrl r
-  copyContent: A
+  copyContent: A   #仅图形化界面可用 且需要安装xclip
   quitDestop: ctrl w
   term: ctrl t
   quitTerm: ctrl q
@@ -21,3 +21,28 @@ short_key:
   unzip: U
   tail: T
   less: L
+choose_skin: gray_black
+skin:
+#  gray_black:   #{'gray_black': [['bigtext', 'light gray', 'dark gray'], [None]]}
+#    -
+#      - bigtext
+#      - light gray
+#      - dark gray   #dark magenta
+    gray_black:
+      chars_bg:
+        - chars_bg
+        - light gray
+        - dark gray #dark magenta
+      bigtext:
+        - bigtext
+        - light gray
+        - dark gray #
+    black_magenta:
+      chars_bg:
+        - chars_bg
+        - light gray
+        - dark magenta
+      bigtext:
+          - bigtext
+          - light gray
+          - dark magenta
