@@ -67,6 +67,7 @@
 | unzip files | U | 
 | view live changes | T | 
 | View file contents in detail | L | 
+| Change file or dir permission   |   G   | 
 
 ---
 
