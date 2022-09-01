@@ -1,3 +1,4 @@
+
 # Lin - Use TUI style to manage files!
 
 ![image](https://github.com/Mrwu87/Lin/blob/master/linsc.png)
@@ -111,4 +112,3 @@ short_key:        #快捷键设置
 ## 皮肤
 ### 修改配置文件(默认为gray_black)
 #### choose_skin: gray_black
-
