@@ -1,6 +1,6 @@
 show_hide_files: false
 editor: vi
-mouse: false
+mouse: true
 short_key:
   cut: X
   refresh: ctrl r
@@ -14,13 +14,14 @@ short_key:
   pasteFile: V
   goTo: O
   selectedFile: ' '
-  cancelSelected: ctrl esc
+#  cancelSelected: ctrl esc
   backdir: esc
   backUpfile: B
   zip: Z
   unzip: U
   tail: T
   less: L
+  chmod: G
 choose_skin: gray_black
 skin:
 #  gray_black:   #{'gray_black': [['bigtext', 'light gray', 'dark gray'], [None]]}

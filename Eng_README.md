@@ -83,6 +83,7 @@
 editor: vi        #设定打开文件的编辑器
 mouse: false      #开启鼠标模式（注意：这里开启之后就无法选取文字）
 short_key:        #快捷键设置
+show_hide_files: false
   cut: X
   refresh: ctrl r
   copyContent: A
@@ -107,5 +108,5 @@ short_key:        #快捷键设置
 
 
 ## More Skins
-#### Not yet online
+#### choose_skin: gray_black
 

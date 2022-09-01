@@ -1,0 +1,14 @@
+#! /bin/expect
+# ./scp.exp wlw Wlw123 127.0.0.1 dir.yaml /home/wlw/
+
+set name [ lindex  $argv 0 ]
+set passwd [ lindex $argv 1 ]
+set ip [ lindex $argv 2  ]
+set source [ lindex $argv 3 ]
+set des [ lindex $argv 4 ]
+spawn  scp $source $name@$ip:$des
+               expect {
+               "yes/no?" {send "yes\r";exp_continue;}
+               "password:" { send "$passwd\r" }}
+               expect #
+               set timeout 0

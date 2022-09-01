@@ -16,7 +16,7 @@ exterfonts=None         #原始外部font 可以使用_get_widget_list 或者 _s
 original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮列表  代表筛选前的按钮列表
 views=None
 file_list=[]            #用于承载选择的文件列表
-
+pop_up=None
 
 
 class SwitchingPadding(urwid.Padding):
@@ -118,6 +118,7 @@ def create_button_list(file, dir):
         else:
             font_buttons.append(rb)
     return font_buttons
+
 def filename_handling(name):
     if name[-2] == '->':
         # os.system(f'echo {name} >> 123')
@@ -137,6 +138,7 @@ def filename_handling(name):
     elif len(name[5]) < 3:
         dates = '0' + name[5] + name[6] + '日' + ' ' + name[7]
     return f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
+
 def create_dir_button(name):
     '''
         #处理按钮的显示页面部分，显示按钮的文字内容再通过调用传递创建按钮类中
@@ -153,7 +155,6 @@ def create_dir_button(name):
     #os.system(f"echo '{w.set_focus_attr()} '> 123")
     return w
 
-
 def create_file_button(name):
     '''
     #处理按钮的显示页面部分，显示按钮的文字内容再通过调用传递创建按钮类中
@@ -163,12 +164,11 @@ def create_file_button(name):
     if name != ' ':
         Attrwarp=FileButton(filename_handling(name))
         w = ThingWithAPopUp(Attrwarp)
-        w = Attrwarp.create_appwarp(w)  #对按钮创建Attrwarp
+        w = Attrwarp.create_appwarp(w)  #对按钮创建Attrwarp样式
     else:
         w = urwid.Button(' ')
         w = urwid.AttrWrap(w, 'button normal', 'file button select')
     return w
-
 
 #创建同种button按钮的按键可以做到不一样的效果
 #目录按钮的重写类用于对按钮进行逻辑操作
@@ -180,7 +180,13 @@ class DirButton(urwid.Button):
 
 
     def keypress(self, size, key):
-        dirname = self.label.strip().split(" ")[0]
+        file_data = [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
+        dirname = file_data[0]
+
+        if key ==setting['short_key']['chmod']:
+            user_group = file_data[1]
+            permission = file_data[2][1:]
+            Chmod(views, Loop,dirname,user_group,permission)
         if key in ('enter',) :
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -208,9 +214,8 @@ class DirButton(urwid.Button):
             else:
                 self.attrwarp.set_attr('select')
                 file_list.append(file_path)
-        elif key == setting['short_key']['cancelSelected']:
-            self.attrwarp.set_attr('dir button select')
-
+        # elif key == setting['short_key']['cancelSelected']:
+        #     self.attrwarp.set_attr('dir button select')
                 #urwid.AttrWrap(self,'button normal', 'delete')
         else:
             return key
@@ -224,11 +229,21 @@ class FileButton(urwid.Button):
         return self.attrwarp
 
     def keypress(self, size, key):
+        global Loop
+        global views
         # if key in ('ctrl p',) :
         #     os.system(f'echo {self.label.strip().split(" ")[-1]} > wulinwei1.py')
-        filename=self.label.strip().split(" ")[0]
 
-        if key == setting['short_key']['unzip']:
+        #user_group = self.label.strip().split(" ")[1]
+        file_data= [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
+        filename=file_data[0].strip('*')
+
+        # os.system(f"echo '{permission}' > 123")
+        if key ==setting['short_key']['chmod']:
+            user_group = file_data[1]
+            permission = file_data[2][1:]
+            Chmod(views, Loop,filename,user_group,permission)
+        elif key == setting['short_key']['unzip']:
             # Zipfile(self.view,self.loop)
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -244,19 +259,19 @@ class FileButton(urwid.Button):
                 os.system(f'unzip  {datas["Dir"]}{filename} -d {datas["Dir"]}  2>&1 > /dev/null ')
                 reload_dir()
             return
-        if key == setting['short_key']['tail']:
-            global Loop
-            global views
+        elif key == setting['short_key']['tail']:
+
             tail_term=Showfile(views,filename,'tail')
             exit = urwid.LineBox(tail_term)
             exit = urwid.Overlay(exit, views, 'center', 150, 'middle', 150)
             Loop.widget = exit
-        if key == setting['short_key']['less']:
+
+        elif key == setting['short_key']['less']:
             less_term=Showfile(views,filename,'less')
             exit = urwid.LineBox(less_term)
             exit = urwid.Overlay(exit, views, 'center', 150, 'middle', 150)
             Loop.widget = exit
-        if  key == setting['short_key']['backUpfile']:  # 一键备份文件
+        elif  key == setting['short_key']['backUpfile']:  # 一键备份文件
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             backup_file=datas['Dir']+filename+'.bak'
@@ -271,28 +286,29 @@ class FileButton(urwid.Button):
             reload_dir()
 
 
-        if  key ==setting['short_key']['copyContent']:  # 一键复制文件内容
+        elif  key ==setting['short_key']['copyContent']:  # 一键复制文件内容
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             file_path=datas['Dir']+filename
             with open(f'{file_path}') as f:
                 file_content = f.read()
             pyperclip.copy(file_content)
-        elif key in ('enter',):   #点击文件按钮发送click信号给按钮本身 模拟点击操作
-            self._emit('click')
+        elif key in ('enter',):
+            # self._emit('click') #点击文件按钮发送click信号给按钮本身 模拟点击操作
+            pop_up()
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             file_path=datas['Dir']+filename
             #os.system(f"echo '{file_list}' >> 123")
-            if self.attrwarp.get_attr()=='select':
+            if self.attrwarp.get_attr()=='select':  #如果是已经选择了则回到正常状态
                 self.attrwarp.set_attr('button normal')
                 file_list.remove(file_path)
             else:
                 self.attrwarp.set_attr('select')
                 file_list.append(file_path)
-        elif key ==  setting['short_key']['cancelSelected']:
-            self.attrwarp.set_attr('file button select')
+        # elif key ==  setting['short_key']['cancelSelected']:
+        #     self.attrwarp.set_attr('file button select')
         else:
             return key
 
@@ -434,7 +450,6 @@ class Showfile(urwid.Terminal):
 
         os.write(self.master, key)
 
-
 class TermPop(urwid.Terminal):
     '''
     终端函数可以自主退出终端弹窗窗口
@@ -571,8 +586,6 @@ class TermPop(urwid.Terminal):
 
         os.write(self.master, key)
 
-
-
 class PopUpDialog(urwid.Terminal):
     #signals = ['closed']
     #term=urwid.Terminal(None,encoding='utf-8')
@@ -707,12 +720,15 @@ class PopUpDialog(urwid.Terminal):
             key = key.encode(self.encoding, 'ignore')
 
         os.write(self.master, key)
+
 class ThingWithAPopUp(urwid.PopUpLauncher):
     def __init__(self,button):
         self.button=button
         self.__super.__init__(self.button)   #传递按钮对象到弹窗进行处理
-        urwid.connect_signal(self.original_widget, 'click',
-            lambda button: self.open_pop_up())     #模拟一旦某个按钮对象收到click信号则触发弹窗
+        # urwid.connect_signal(self.original_widget, 'click',
+        #     lambda button: self.open_pop_up())     #模拟一旦某个按钮对象收到click信号则触发弹窗
+        global pop_up
+        pop_up=self.open_pop_up
         #FileButton(self.open_pop_up)
 
     def create_pop_up(self):
@@ -723,7 +739,6 @@ class ThingWithAPopUp(urwid.PopUpLauncher):
 
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
-
 
 class Jump_dir(urwid.WidgetWrap):
     def jumpop(self,widget):
@@ -776,13 +791,11 @@ class Jump_dir(urwid.WidgetWrap):
         urwid.connect_signal(closed_button, 'click',
                              self.closepop)
 
-
-
 #删除文件或者目录
 class Delfile(urwid.WidgetWrap):
     def  delete_file_or_dir(self,widget):
             global file_list
-            files=[ f"'{i}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            files=[ f"'{i.strip('*')}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
             files = " ".join(files)
             command_stat = os.system(f"rm -rf  {files}  ")
             if command_stat != 0:
@@ -840,7 +853,7 @@ class Zipfile(urwid.WidgetWrap):
                 if i.state == True:
                     suffix = i.get_label()
             global file_list
-            files=[ f"'{i}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            files=[ f"'{i.strip('*')}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
             files = " ".join(files)
             dirname=self.Dir.get_edit_text()
             zipname=self.zipname.get_edit_text()
@@ -999,7 +1012,6 @@ class TouchFile(urwid.WidgetWrap):
                            urwid.Divider(),
                            urwid.Divider(),
                            create_button,
-
                            closed_button])
         pop_warp=urwid.LineBox(self.pile)
         fill = urwid.Filler(pop_warp)
@@ -1009,6 +1021,141 @@ class TouchFile(urwid.WidgetWrap):
 
         urwid.connect_signal(touch_button, 'click',
                              self.touch_file_or_dir)
+        urwid.connect_signal(close_button, 'click',
+                             self.delpop)
+
+
+class Chmod(urwid.WidgetWrap):
+    signals = ['close']
+    def delpop(self,widget):
+        urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
+        self.loop_widget.widget = self.view
+    def chmod_file_or_dir(self,widget):
+        # for i in self.bgroup:
+        #     if i.state == True:
+        #         file_or_dir=i.get_label()
+        # if self.Dir.get_text()[0].strip()[-1] == '/':
+        #     dir_path = self.Dir.get_text()[0].strip()[:-1]
+        # else:
+        #     dir_path = self.Dir.get_text()[0].strip()
+        with open('dir.yaml','r') as f:
+            datas=yaml.safe_load(f)
+        dir_path=datas['Dir']
+
+        self.chmod_name=self.chmod_name.strip('*')
+
+
+        def permission_change(permit):
+            chmod_str = ""
+            for i in permit:
+                num = 0
+                if i[0]: #read
+                    num = num + 4
+                if i[1]:  #write
+                    num = num + 2
+                if i[2]:  #exe
+                    num = num + 1
+                chmod_str=chmod_str+str(num)
+            return chmod_str
+
+
+        update_permit=[
+        [self.owner_read.get_state(),self.owner_write.get_state(),self.owner_execute.get_state()],
+        [self.group_read.get_state(),self.group_write.get_state(),self.owner_execute.get_state()],
+        [self.others_read.get_state(),self.others_write.get_state(),self.others_execute.get_state()]
+         ]
+
+        permit_num=permission_change(update_permit)
+        #os.system(f"echo '{permit_num}' > 123")
+        chmod_command = os.system(f"chmod  {permit_num} '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        chown_command=os.system(f"chown '{self.user.get_text()[0].strip()}' '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        chgrp_command = os.system( f"chgrp  '{self.grouper.get_text()[0].strip()}'  '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        if chown_command!=0 or chmod_command!=0 or chgrp_command !=0:
+            self.pile._get_widget_list().append(urwid.Text(' Failed! Do you have root permission or the user exist?'))
+        else:
+            reload_dir()
+            self.loop_widget.widget = self.view
+
+    def __init__(self, view,loop_widget,chmod_name,user_group,permission):
+        def split_permission(permission):
+            process_permissions = {'read': False, 'write': False, 'exe': False}
+            if '-' not in permission:
+                process_permissions = {'read': True, 'write': True, 'exe': True, }
+                return process_permissions
+            if 'r' in permission:
+                process_permissions['read']=True
+            if 'w' in permission:
+                process_permissions['write']=True
+            if 'x' in permission:
+                process_permissions['exe']= True
+            return process_permissions
+
+        self.chmod_name=chmod_name
+        self.view = view
+        self.loop_widget=loop_widget
+        self.ownerlist = []
+
+
+
+        owner = urwid.Text("Owner：\n")
+        self.own_pms=split_permission(permission[0:3])
+        self.owner_read = urwid.CheckBox('Read',self.own_pms['read'])
+        self.owner_write= urwid.CheckBox('Write',self.own_pms['write'])
+        self.owner_execute = urwid.CheckBox('Execute', self.own_pms['exe'])
+
+
+        # os.system(f"echo '{owner_read.get_state()}' > 123")
+
+        group=urwid.Text("Group：\n")
+        self.group_pms = split_permission(permission[3:6])
+        self.group_read = urwid.CheckBox('Read', self.group_pms['read'])
+        self.group_write = urwid.CheckBox('Write', self.group_pms['write'])
+        self.group_execute = urwid.CheckBox('Execute', self.group_pms['exe'])
+
+
+        others = urwid.Text("Others：\n")
+        self.other_pms = split_permission(permission[6:9])
+        self.others_read = urwid.CheckBox('Read', self.other_pms['read'])
+        self.others_write = urwid.CheckBox('Write', self.other_pms['write'])
+        self.others_execute = urwid.CheckBox('Execute',self.other_pms['exe'])
+
+
+        user=urwid.Text('User:')
+
+        self.user= urwid.Edit(edit_text=user_group.split('/')[0])
+        filename=urwid.AttrWrap(self.user, 'body')
+        change_button = urwid.Button("Change")
+        chmod_button = urwid.AttrWrap(change_button, 'button normal', 'dir button select')
+        #delete
+        grouper = urwid.Text('Group:')
+        self.grouper = urwid.Edit(edit_text=user_group.split('/')[1])
+        grouper_text = urwid.AttrWrap(self.grouper, 'body')
+
+        # urwid.AttrWrap(self.exit, 'body')
+        close_button = urwid.Button("Quit")
+        closed_button = urwid.AttrWrap(close_button, 'button normal', 'delete')
+        self.pile = urwid.Pile([owner,
+
+            self.owner_read,self.owner_write,self.owner_execute,urwid.Divider(),
+            group,self.group_read,self.group_write,self.group_execute,urwid.Divider(),
+            others,self.others_read,self.others_write,self.others_execute,
+                                user,
+                           filename,
+                                grouper,
+                                grouper_text,
+                           urwid.Divider(),
+                           urwid.Divider(),
+                           chmod_button,
+                           closed_button])
+        self.pile.set_focus(15)
+        pop_warp=urwid.LineBox(self.pile)
+        fill = urwid.Filler(pop_warp)
+        self.exit = urwid.LineBox(fill)
+        urwid.AttrWrap(self.exit, 'body')
+        self.loop_widget.widget = urwid.Overlay(self.exit, self.view, 'center', 80, 'middle', 40)
+
+        urwid.connect_signal(change_button, 'click',
+                             self.chmod_file_or_dir)
         urwid.connect_signal(close_button, 'click',
                              self.delpop)
 
@@ -1197,7 +1344,7 @@ class BigTextDisplay:
 
         self.bt = urwid.Pile([bt, edit], focus_item=1)
 
-        files = urwid.Text(f"   文件名称{count_str('文件名称')}权限大小{count_str('权限大小')}用户/组{count_str('用户/组')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
+        files = urwid.Text(f"   文件名称{count_str('文件名称')}用户/组{count_str('用户/组')}权限大小{count_str('权限大小')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
         #pb = urwid.ProgressBar('Begin', 'END') #进度条
         last=urwid.Text(u' ')
         last=urwid.AttrMap(last,'edit')
@@ -1255,6 +1402,7 @@ class BigTextDisplay:
         #     pass
         # if key == 'S':
         #     pass
+
         if key == setting['short_key']['goTo']:
             Jump_dir(self.view,self.loop)
             file_list = []
@@ -1285,10 +1433,10 @@ class BigTextDisplay:
                 current_path = datas['Dir']
                 if self.copy_file_list!=[] and self.copy:
                     for file_path in self.copy_file_list:  #可以加入进度条模式
-                        os.system(f"cp -af '{file_path}' '{current_path}' 2> /dev/null")
+                        os.system(f"cp -af '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
                 elif  self.copy_file_list!=[] and self.copy==False:
                     for file_path in self.copy_file_list:  #可以加入进度条模式
-                        os.system(f"mv '{file_path}' '{current_path}' 2> /dev/null")
+                        os.system(f"mv '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
                 else:
                     return
                 # font_buttons = create_button_list(*file_dir())
