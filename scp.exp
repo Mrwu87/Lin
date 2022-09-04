@@ -6,7 +6,7 @@ set passwd [ lindex $argv 1 ]
 set ip [ lindex $argv 2  ]
 set source [ lindex $argv 3 ]
 set des [ lindex $argv 4 ]
-spawn  scp $source $name@$ip:$des
+spawn  scp  -qp $source $name@$ip:$des
                expect {
                "yes/no?" {send "yes\r";exp_continue;}
                "password:" { send "$passwd\r" }}

@@ -2,7 +2,7 @@ import urwid
 
 def main():
     urwid.set_encoding('utf8')
-    term = urwid.Terminal(('less','-e','-N','-m','/home/wlw/.bashrc'), encoding='utf-8')
+    term = urwid.Terminal(None, encoding='utf-8',escape_sequence='"ctrl a"')
 
     mainframe = urwid.LineBox(
         # urwid.Pile([

@@ -752,7 +752,9 @@ class Scpfile(urwid.WidgetWrap):
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
             else:
+
                 reload_dir()
+                file_list = []
                 self.loop_widget.widget = self.view
     def scppop(self,widget):
         urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
@@ -1484,6 +1486,15 @@ class BigTextDisplay:
         #     pass
         # if key == 'S':
         #     pass
+        if key== setting['short_key']['change_mouse_tracing']:
+            if  self.loop.handle_mouse:
+                self.loop.handle_mouse= False
+            else:
+                self.loop.handle_mouse = True
+            self.loop.screen.set_mouse_tracking(enable=self.loop.handle_mouse)
+           # os.system(f"echo {self.loop.handle_mouse} > 123")
+            return
+
         if key== setting['short_key']['scp']:
             Scpfile(self.view, self.loop)
             return

@@ -22,6 +22,8 @@ short_key:
   tail: T
   less: L
   chmod: G
+  scp: S
+  change_mouse_tracing: F
 choose_skin: gray_black
 skin:
 #  gray_black:   #{'gray_black': [['bigtext', 'light gray', 'dark gray'], [None]]}
