@@ -327,7 +327,6 @@ class Showfile(urwid.Terminal):
     def keypress(self, size, key):
 
         if key == setting['short_key']['quitTerm'] :  # 判断是否为ctrl q 按钮
-
             Loop.widget = self.view
 
         if self.terminated:
@@ -457,7 +456,7 @@ class TermPop(urwid.Terminal):
     def __init__(self, view):
         self.view = view
         urwid.set_encoding('utf8')
-        self.__super.__init__(None, encoding='utf-8')  # 创建一个终端
+        self.__super.__init__(None, encoding='utf-8',escape_sequence="ctrl 0")  # 创建一个终端,把ctrl+a 键释放出来
         self.main_loop = Loop  # 这一步让终端流畅运行
 
     def keypress(self, size, key):
@@ -740,6 +739,88 @@ class ThingWithAPopUp(urwid.PopUpLauncher):
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
 
+class Scpfile(urwid.WidgetWrap):
+    def  scp_file_or_dir(self,widget):
+            global file_list
+            # files=[ f"'{i.strip('*')}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            # files = " ".join(files)
+            for file in file_list:
+                file=file.strip('*')
+
+                command_stat = os.system(f"expect scp.exp {self.user.get_edit_text()} {self.passwd.get_edit_text()} {self.des_ip.get_edit_text()} {file} {self.des_dir.get_edit_text()} 2>&1 > /dev/null ")
+            # os.system(f"echo ''  > 123")
+            if command_stat != 0:
+                self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
+            else:
+                reload_dir()
+                self.loop_widget.widget = self.view
+    def scppop(self,widget):
+        urwid.Overlay( self.view,self.exit, 'center', 30000, 'middle', 30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
+        self.loop_widget.widget = self.view
+    def __init__(self, view,loop_widget):
+        self.view = view
+        self.loop_widget=loop_widget
+        filename_txt = urwid.Text("Transfer source file：\n")
+        self.filename = urwid.Edit(edit_text="")
+        global file_list
+        files='\n'.join(file_list)
+        self.filename.set_edit_text(files)
+        filename=urwid.AttrWrap(self.filename, 'body')
+
+        user_txt = urwid.Text("Target User ：")
+        output = os.popen("whoami")
+        current_user=output
+        for i in output:
+            current_user=i.strip()
+        self.user = urwid.Edit(edit_text=f"{current_user}")
+        user = urwid.AttrWrap(self.user, 'body')
+
+        des_ip_txt = urwid.Text("Target ip ：")
+        self.des_ip = urwid.Edit(edit_text="")
+        des_ip = urwid.AttrWrap(self.des_ip, 'body')
+
+        des_txt = urwid.Text("Target paths：")
+        self.des_dir = urwid.Edit(edit_text="")
+        des_dir = urwid.AttrWrap(self.des_dir, 'body')
+
+        passwd_txt = urwid.Text("Passwd：")
+        self.passwd = urwid.Edit(edit_text='',mask='*')
+        passwd = urwid.AttrWrap(self.passwd, 'body')
+
+
+        send = urwid.Button("Send")
+        send_button=urwid.AttrWrap(send, 'button normal', 'dir button select')
+        close_button = urwid.Button("Quit")
+        closed_button = urwid.AttrWrap(close_button, 'button normal', 'delete')
+
+
+        self.pile = urwid.Pile([
+            user_txt, user,
+            urwid.Divider(),
+
+            des_ip_txt, des_ip,
+            urwid.Divider(),
+                          filename_txt,
+                           filename,
+                           urwid.Divider(),
+                           urwid.Divider(),
+            des_txt,des_dir,
+            urwid.Divider(),
+            passwd_txt,passwd,
+            urwid.Divider(),
+                           send_button,
+                           closed_button])
+        pop_warp=urwid.LineBox(self.pile)
+        fill = urwid.Filler(pop_warp)
+        self.exit = urwid.LineBox(fill)
+        urwid.AttrWrap(self.exit, 'body')
+        self.loop_widget.widget = urwid.Overlay(self.exit, self.view, 'center', 62, 'middle', 32)
+        urwid.connect_signal(send, 'click',
+                             self.scp_file_or_dir)
+        urwid.connect_signal(close_button, 'click',
+                             self.scppop)
+
+
 class Jump_dir(urwid.WidgetWrap):
     def jumpop(self,widget):
         with open('dir.yaml', 'r') as f:
@@ -790,6 +871,7 @@ class Jump_dir(urwid.WidgetWrap):
                              self.jumpop)
         urwid.connect_signal(closed_button, 'click',
                              self.closepop)
+
 
 #删除文件或者目录
 class Delfile(urwid.WidgetWrap):
@@ -1402,6 +1484,9 @@ class BigTextDisplay:
         #     pass
         # if key == 'S':
         #     pass
+        if key== setting['short_key']['scp']:
+            Scpfile(self.view, self.loop)
+            return
 
         if key == setting['short_key']['goTo']:
             Jump_dir(self.view,self.loop)
@@ -1503,22 +1588,23 @@ class BigTextDisplay:
             self.oper = (
                 u'Shortcuts Documentation:',
                 ' ',
-                u'    Ctrl+r  Refresh',
-                u'    Ctrl+s  Compress a dir',
-                u'    Ctrl+a  Copy the file contents ',
+                u'    Ctrl+r  Refresh/Cancel selected files',
+                u'    Z       Compress a dir',
+                u'    Ctrl+a  Copy the file contents(Need desktop) ',
                 u'    Ctrl+w  Quit to destop',
                 u'    Ctrl+t  Term',
                 u'    Ctrl+q  Quit to Term',
-                u'    Ctrl+r  refresh',
                 u'    Ctrl+n  Create a file',
                 u'    Ctrl+d  Delete selected files',
-                u'    shift+c  Copy selected files',
-                u'    shift+v  Paste file',
-                u'    shift+x  Cut selected file',
-                u'    shift+o  Go to the directory' ,
-                u'    space  selected files',
-                u'    Ctrl+esc  Cancel selected files',
-                u'    Esc  back to upper level directory ',
+                u'    C       Copy selected files',
+                u'    V       Paste file',
+                u'    X       Cut selected file',
+                u'    O       Go to the directory' ,
+                u'    space   selected files',
+                u'    T       Tail the file',
+                u'    G       Changed file/dir permission',
+                u'    L       Step-by-step file reading',
+                u'    Esc     back to upper level directory ',
                 ' ',
                 u'?       Help',
 
