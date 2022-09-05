@@ -187,7 +187,7 @@ class DirButton(urwid.Button):
             user_group = file_data[1]
             permission = file_data[2][1:]
             Chmod(views, Loop,dirname,user_group,permission)
-        if key in ('enter',) :
+        elif key in ('enter',) :
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             with open('dir.yaml', 'w') as f:
@@ -231,6 +231,7 @@ class FileButton(urwid.Button):
     def keypress(self, size, key):
         global Loop
         global views
+        global pop_up
         # if key in ('ctrl p',) :
         #     os.system(f'echo {self.label.strip().split(" ")[-1]} > wulinwei1.py')
 
@@ -295,7 +296,7 @@ class FileButton(urwid.Button):
             pyperclip.copy(file_content)
         elif key in ('enter',):
             # self._emit('click') #点击文件按钮发送click信号给按钮本身 模拟点击操作
-            pop_up()
+            pop_up(self.label.strip().split(" ")[0])
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -321,8 +322,10 @@ class Showfile(urwid.Terminal):
         #os.system(f"echo '{filename}' > 123")
         if exec == 'tail':
             self.__super.__init__(('tail','-f', '-n 300',f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
+            # Loop.draw_screen()
         elif exec == 'less':
             self.__super.__init__(('less','-N','-m',f'{datas["Dir"] + filename}'), encoding='utf-8')  # 创建一个终端
+            Loop.draw_screen()
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
 
@@ -721,17 +724,27 @@ class PopUpDialog(urwid.Terminal):
         os.write(self.master, key)
 
 class ThingWithAPopUp(urwid.PopUpLauncher):
+    def open_pop_up(self, name):
+        self._pop_up_widget = self.create_pop_up(name)
+        self._invalidate()
+
     def __init__(self,button):
         self.button=button
         self.__super.__init__(self.button)   #传递按钮对象到弹窗进行处理
         # urwid.connect_signal(self.original_widget, 'click',
         #     lambda button: self.open_pop_up())     #模拟一旦某个按钮对象收到click信号则触发弹窗
         global pop_up
+
+        #self.abc=self.original_widget
         pop_up=self.open_pop_up
+
+
         #FileButton(self.open_pop_up)
 
-    def create_pop_up(self):
-        pop_up = PopUpDialog(self.button.get_label().strip().split(" ")[0])  #发送文件名到弹窗终端里
+    def create_pop_up(self,name):
+        #os.system(f'echo {self.button.get_label().strip()} > 123')
+        pop_up = PopUpDialog(name)  #发送文件名到弹窗终端里
+
         urwid.connect_signal(pop_up, 'closed',
                              lambda button: self.close_pop_up())              #假如收到弹窗关闭信号就关闭弹窗
         return pop_up
@@ -1495,17 +1508,17 @@ class BigTextDisplay:
            # os.system(f"echo {self.loop.handle_mouse} > 123")
             return
 
-        if key== setting['short_key']['scp']:
+        elif key== setting['short_key']['scp']:
             Scpfile(self.view, self.loop)
             return
 
-        if key == setting['short_key']['goTo']:
+        elif key == setting['short_key']['goTo']:
             Jump_dir(self.view,self.loop)
             file_list = []
             return
 
 
-        if key == setting['short_key']['copyFile']:  # C
+        elif key == setting['short_key']['copyFile']:  # C
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -1513,7 +1526,7 @@ class BigTextDisplay:
             file_list = []
             self.copy=True
             return
-        if key == setting['short_key']['cut']: # X
+        elif key == setting['short_key']['cut']: # X
             font_buttons = create_button_list(*file_dir())
             self.fonts._set_widget_list(font_buttons)
             original_buttons = self.fonts._get_widget_list()
@@ -1522,7 +1535,7 @@ class BigTextDisplay:
             file_list = []
             self.copy=False
             return
-        if key == setting['short_key']['pasteFile']:  #复用
+        elif key == setting['short_key']['pasteFile']:  #复用
             try:
                 with open('dir.yaml', 'r') as f:
                     datas = yaml.safe_load(f)
@@ -1543,17 +1556,17 @@ class BigTextDisplay:
             except:
                 pass
             return
-        if key == setting['short_key']['zip']:
+        elif key == setting['short_key']['zip']:
             Zipfile(self.view,self.loop)
             return
 
-        if key == setting['short_key']['deleteFile']:  #ctrl d
+        elif key == setting['short_key']['deleteFile']:  #ctrl d
             Delfile(self.view,self.loop)
             return
-        if key == setting['short_key']['createFile']:  #ctrl n
+        elif key == setting['short_key']['createFile']:  #ctrl n
             TouchFile(self.view,self.loop)
             return
-        if key == setting['short_key']['backdir']:  #回退目录重新读取按钮们
+        elif key == setting['short_key']['backdir']:  #回退目录重新读取按钮们
 
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -1574,7 +1587,7 @@ class BigTextDisplay:
             # original_buttons = self.fonts._get_widget_list()
             fonts=reload_dir()
             fonts.set_focus(0)
-        if key == setting['short_key']['term']:
+        elif key == setting['short_key']['term']:
             '''
             按键ctrl+t 召唤终端使用overload覆盖层的方式让终端浮于view层上
             '''
@@ -1585,10 +1598,10 @@ class BigTextDisplay:
             self.loop.widget = exit
             return
 
-        if key == setting['short_key']['refresh']:  #刷新
+        elif key == setting['short_key']['refresh']:  #刷新
             reload_dir()
             return
-        if key == '?':
+        elif key == '?':
             def fn(view,loop,new):  #这里的传参为顺序传参 传多个参数最后一个一直都是要操作的对象 这里是button
                 loop.widget=view
             #help_info=urwid.Text('Command Help')  #需要制作退出按钮
@@ -1627,16 +1640,19 @@ class BigTextDisplay:
             self.loop.widget = help_info
             return
         #if key == 'f8':
-        if key == setting['short_key']['quitDestop']:
+        elif key == setting['short_key']['quitDestop']:
             self.loop.widget = self.exit_view
             return True
-        if self.loop.widget != self.exit_view:
+        elif self.loop.widget != self.exit_view:
             return
-        if key in ('y', 'Y'):
+        elif key in ('y', 'Y'):
             raise urwid.ExitMainLoop()
-        if key in ('n', 'N'):
+        elif key in ('n', 'N'):
             self.loop.widget = self.view
             return True
+        else:
+            return
+
 
 def main():
     urwid.Button.button_left = urwid.Text("|")
