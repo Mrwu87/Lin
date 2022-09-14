@@ -49,9 +49,8 @@
 | Action | Command |
 |--------|---------|
 | select file/folder | space |  
-| undo selected files | ctrl esc |  
 | Cut selected files/folders | X |
-| refresh page | ctrl r |
+| refresh page/undo selected files | ctrl r |
 | Copy File Contents | A |
 | Exit Tools | ctrl w |
 | call terminal | ctrl t |
@@ -67,7 +66,10 @@
 | unzip files | U | 
 | view live changes | T | 
 | View file contents in detail | L | 
-| Change file or dir permission   |   G   | 
+| Change file or dir permission   |   G   |
+| Transferring files | S |
+| Change mouse mode |    F   |  
+
 
 ---
 

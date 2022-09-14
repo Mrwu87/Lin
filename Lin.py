@@ -75,7 +75,7 @@ def file_dir():
         elif output_list[0][0] == 'l' and output_list[-1][-1] != '/':
             file.append(output_list)
         elif  output_list[0][0] == 'c' or output_list[0][0] == 'b':
-            os.system(f"echo '{output_list}' > 123")
+            #os.system(f"echo '{output_list}' > 123")
             output_list[4:-1]=[' ',' ',' ',' ',' ']
             # output_list[-2] = 'None'
             file.append(output_list)
@@ -120,11 +120,11 @@ def create_button_list(file, dir):
     return font_buttons
 
 def filename_handling(name):
-    if name[-2] == '->':
+    if name[-2] == '->':               #链接处理
         # os.system(f'echo {name} >> 123')
         file = name[-1] + ' ' + name[-2] + ' ' + name[-3]
     else:
-        # os.system(f'echo {name} >> 123')
+        # os.system(f'echo {name} >> 123')  #正常文件处理 name[-1] 是文件名  -rw-r--r-- 1 root root   56964 3月  24  2020 libffi-dev_3.3-4_amd64.deb
         file = name[-1]
     user_group = name[2] + '/' + name[3]
     chmod = name[0]
@@ -137,7 +137,10 @@ def filename_handling(name):
         dates = name[5] + '0' + name[6] + '日' + ' ' + name[7]
     elif len(name[5]) < 3:
         dates = '0' + name[5] + name[6] + '日' + ' ' + name[7]
-    return f' {file[:30]}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
+    return f' {file}{count_str(file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
+
+
+
 
 def create_dir_button(name):
     '''
@@ -172,16 +175,36 @@ def create_file_button(name):
 
 #创建同种button按钮的按键可以做到不一样的效果
 #目录按钮的重写类用于对按钮进行逻辑操作
-class DirButton(urwid.Button):
+class file_handling:  #文件二次处理类
+    def file_dir_second_handling(self,files):
+        if files[1] == '->':  # 链接处理
+            self.file = files[0] + ' ' + files[1] + ' ' + files[2]
+            user_group = files[3]
+            chmod = files[4]
+            file_size = files[5]
+            dates = files[6]
+        else:
+            self.file = files[0]
+            user_group = files[1]
+            chmod = files[2]
+            file_size = files[3]
+            dates = files[4]
+        return f' {self.file[:30]}{count_str(self.file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
+
+class DirButton(urwid.Button,file_handling):
+
 
     def create_appwarp(self,w):
+        file_data=[ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
+        w.set_label(self.file_dir_second_handling(file_data))
         self.attrwarp=urwid.AttrWrap(w,'button normal', 'dir button select')
         return self.attrwarp
 
 
     def keypress(self, size, key):
         file_data = [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
-        dirname = file_data[0]
+        dirname = self.file
+        #os.system(f"echo '{self.label}'> 123")
 
         if key ==setting['short_key']['chmod']:
             user_group = file_data[1]
@@ -221,10 +244,13 @@ class DirButton(urwid.Button):
             return key
 
 #文件按钮的重写类用于对按钮进行逻辑操作
-class FileButton(urwid.Button):
+class FileButton(urwid.Button,file_handling):
     # def __init__(self, abc):
     #     self.abc = abc
+
     def create_appwarp(self, w):
+        file_data = [ii for ii in w.original_widget.label.strip().split(" ") if (len(str(ii)) != 0)]
+        w.original_widget.set_label(self.file_dir_second_handling(file_data))
         self.attrwarp = urwid.AttrWrap(w, 'button normal', 'file button select')
         return self.attrwarp
 
@@ -237,11 +263,12 @@ class FileButton(urwid.Button):
 
         #user_group = self.label.strip().split(" ")[1]
         file_data= [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
-        filename=file_data[0].strip('*')
+        # filename=file_data[0].strip('*')
+        filename = self.file.strip('*')
 
         # os.system(f"echo '{permission}' > 123")
         if key ==setting['short_key']['chmod']:
-            user_group = file_data[1]
+            user_group =file_data[1]
             permission = file_data[2][1:]
             Chmod(views, Loop,filename,user_group,permission)
         elif key == setting['short_key']['unzip']:
@@ -459,7 +486,7 @@ class TermPop(urwid.Terminal):
     def __init__(self, view):
         self.view = view
         urwid.set_encoding('utf8')
-        self.__super.__init__(None, encoding='utf-8',escape_sequence="ctrl 0")  # 创建一个终端,把ctrl+a 键释放出来
+        self.__super.__init__(None, encoding='utf-8',escape_sequence="ctrl s")  # 创建一个终端,把ctrl+a逃逸键释放出来  这个键是用来架上pgup/down 翻页终端的
         self.main_loop = Loop  # 这一步让终端流畅运行
 
     def keypress(self, size, key):
@@ -1157,12 +1184,12 @@ class Chmod(urwid.WidgetWrap):
 
 
         update_permit=[
-        [self.owner_read.get_state(),self.owner_write.get_state(),self.owner_execute.get_state()],
-        [self.group_read.get_state(),self.group_write.get_state(),self.owner_execute.get_state()],
+        [self.owner_read.get_state(),self.owner_write.get_state(),self.owner_execute.get_state()], #由前端是否勾选的来决定状态
+        [self.group_read.get_state(),self.group_write.get_state(),self.group_execute.get_state()],
         [self.others_read.get_state(),self.others_write.get_state(),self.others_execute.get_state()]
          ]
 
-        permit_num=permission_change(update_permit)
+        permit_num=permission_change(update_permit)                   #经过权限判断处理会返回数字如 777
         #os.system(f"echo '{permit_num}' > 123")
         chmod_command = os.system(f"chmod  {permit_num} '{dir_path}{self.chmod_name}' 2> /dev/null ")
         chown_command=os.system(f"chown '{self.user.get_text()[0].strip()}' '{dir_path}{self.chmod_name}' 2> /dev/null ")
@@ -1629,7 +1656,10 @@ class BigTextDisplay:
                 u'    G       Changed file/dir permission',
                 u'    L       Step-by-step file reading',
                 u'    Esc     back to upper level directory ',
-                ' ',
+                u'    U       unzip the file ',
+                u'    S       copy remote files/dir',
+                u'    F       change mouse mode',
+                u' ',
                 u'?       Help',
 
             )
