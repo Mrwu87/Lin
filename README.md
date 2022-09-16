@@ -32,15 +32,16 @@
 11. cpu usage detection
 
 12. memory usage detection
-
-   ...............
+13. File and folder modification permissions
+14. Remote file transfer function Remote file copy
+15. Support mouse click function
+  ...............
 
 ## Upcoming Features
-- File and folder modification permissions
-- Remote file transfer function Remote file copy
+
 - Automatic recognition of suffixes to run programs
 - File content replacement and filtering
-- Support mouse click function
+
 - Global file search
 - ......
 ## Shortcut Keys
