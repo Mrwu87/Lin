@@ -17,7 +17,8 @@ original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮
 views=None
 file_list=[]            #用于承载选择的文件列表
 pop_up=None
-
+ssh_login=('sshpass','-p','Wlw12345','ssh','root@113.31.106.3')
+# scp=sshpass -p Wlw123 ssh wlw@127.0.0.1  'sshpass -p Wlw123 scp /home/wlw/PycharmProjects/pythonProject/example/term.py  wlw@127.0.0.1:/home/wlw/'
 
 class SwitchingPadding(urwid.Padding):
     def padding_values(self, size, focus):
@@ -178,7 +179,7 @@ def create_file_button(name):
 class file_handling:  #文件二次处理类
     def file_dir_second_handling(self,files):
         if files[1] == '->':  # 链接处理
-            self.file = files[0] + ' ' + files[1] + ' ' + files[2]
+            self.file = files[2] + ' ' + files[1] + ' ' + files[0]
             user_group = files[3]
             chmod = files[4]
             file_size = files[5]
@@ -204,7 +205,9 @@ class DirButton(urwid.Button,file_handling):
     def keypress(self, size, key):
         file_data = [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
         dirname = self.file
-        #os.system(f"echo '{self.label}'> 123")
+        if len(self.file.split(' '))>1:
+            dirname=dirname.split(' ')[2]
+        # os.system(f"echo '{dirname}'> 123")
 
         if key ==setting['short_key']['chmod']:
             user_group = file_data[1]
@@ -248,7 +251,7 @@ class FileButton(urwid.Button,file_handling):
     # def __init__(self, abc):
     #     self.abc = abc
 
-    def create_appwarp(self, w):
+    def create_appwarp(self, w): #二次处理过长文件名，让其显示出来并没有超出长度 并且添加被选择属性
         file_data = [ii for ii in w.original_widget.label.strip().split(" ") if (len(str(ii)) != 0)]
         w.original_widget.set_label(self.file_dir_second_handling(file_data))
         self.attrwarp = urwid.AttrWrap(w, 'button normal', 'file button select')
@@ -1418,6 +1421,8 @@ class BigTextDisplay:
             ctrl_opeater(oper)
         )
         controll_list=urwid.ListBox(controll_list)
+        #os.system(f"echo {controll_list.get_cursor_coords(0)} > 123")
+
         controll_list = urwid.AttrMap(controll_list,'chars_bg')  #添加颜色属性
         controll_list = urwid.Padding(controll_list, 'right', left=10)  #增加左右偏移
 
@@ -1459,33 +1464,34 @@ class BigTextDisplay:
         #chosen_font_rb.set_state(True) # causes set_font_event call
 
         # Create Edit widget
-
-
-        # ListBox
         self.create_button()
-        edit = self.create_edit("", "",
-                                self.edit_change_event)
+        edit = self.create_edit("", "", self.edit_change_event)
+        # ListBox
+
 
         self.bt = urwid.Pile([bt, edit], focus_item=1)
 
         files = urwid.Text(f"   文件名称{count_str('文件名称')}用户/组{count_str('用户/组')}权限大小{count_str('权限大小')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
-        #pb = urwid.ProgressBar('Begin', 'END') #进度条
+
         last=urwid.Text(u' ')
         last=urwid.AttrMap(last,'edit')
+        self.page_list= [self.bt,files,self.col,last]
+        # l = [self.bt, last]
 
-        #fill = urwid.Padding(ThingWithAPopUp(), 'center',15)
-        #fill=urwid.LineBox(fill)
+        self.l=urwid.SimpleListWalker(self.page_list)
+        w = urwid.ListBox(self.l)
 
-        l = [self.bt,files,self.col,last]
-        w = urwid.ListBox(urwid.SimpleListWalker(l))
+        global focus
+        focus=w
+
         w = urwid.AttrWrap(w, 'body')
-        hdr = urwid.Text("Lin v1.0 - F8 exits.")
+        hdr = urwid.Text("Lin v1.0 - Ctrl+w exits.")
         hdr = urwid.AttrWrap(hdr, 'header')
         w = urwid.Frame(header=hdr, body=w)
 
         # Exit message
 
-        exit = urwid.BigText(('exit'," Quit? "), exit_font)
+        exit = urwid.BigText(('exit',"Quit?"), exit_font)
         exit = urwid.Overlay(exit, w, 'center', None, 'middle', None)
 
         return w, exit
@@ -1520,12 +1526,16 @@ class BigTextDisplay:
         self.copy=False
         global file_list
         global original_buttons
-        # if key == 'M':
-        #     pass
+        global  focus
         # if key == 'G':
         #     pass
         # if key == 'S':
         #     pass
+        # if key == 'D':
+        #     self.l[-1]=self.col
+        if key == '/':
+            global focus
+            focus.set_focus(0)
         if key== setting['short_key']['change_mouse_tracing']:
             if  self.loop.handle_mouse:
                 self.loop.handle_mouse= False
@@ -1669,7 +1679,6 @@ class BigTextDisplay:
             help_info = urwid.Overlay(help_info, self.view, 'center', 300, 'middle', 300)  # 这里300和300不设置会报错
             self.loop.widget = help_info
             return
-        #if key == 'f8':
         elif key == setting['short_key']['quitDestop']:
             self.loop.widget = self.exit_view
             return True
@@ -1680,6 +1689,7 @@ class BigTextDisplay:
         elif key in ('n', 'N'):
             self.loop.widget = self.view
             return True
+
         else:
             return
 

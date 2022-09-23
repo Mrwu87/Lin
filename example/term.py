@@ -2,7 +2,7 @@ import urwid
 
 def main():
     urwid.set_encoding('utf8')
-    term = urwid.Terminal(None, encoding='utf-8',escape_sequence='"ctrl a"')
+    term = urwid.Terminal(('sshpass','-p','Wlw12345','ssh','root@113.31.106.3'), encoding='utf-8',escape_sequence='"ctrl a"')
 
     mainframe = urwid.LineBox(
         # urwid.Pile([
