@@ -17,7 +17,7 @@ original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮
 views=None
 file_list=[]            #用于承载选择的文件列表
 pop_up=None
-ssh_login=('sshpass','-p','Wlw12345','ssh','root@113.31.106.3')
+ssh_login=('sshpass','-p','Wlw12345','ssh','-o', 'StrictHostKeyChecking=no','root@113.31.106.3')
 # scp=sshpass -p Wlw123 ssh wlw@127.0.0.1  'sshpass -p Wlw123 scp /home/wlw/PycharmProjects/pythonProject/example/term.py  wlw@127.0.0.1:/home/wlw/'
 
 class SwitchingPadding(urwid.Padding):
@@ -790,7 +790,8 @@ class Scpfile(urwid.WidgetWrap):
             for file in file_list:
                 file=file.strip('*')
 
-                command_stat = os.system(f"expect scp.exp {self.user.get_edit_text()} {self.passwd.get_edit_text()} {self.des_ip.get_edit_text()} {file} {self.des_dir.get_edit_text()} 2>&1 > /dev/null ")
+                # command_stat = os.system(f"expect scp.exp {self.user.get_edit_text()} {self.passwd.get_edit_text()} {self.des_ip.get_edit_text()} {file} {self.des_dir.get_edit_text()} 2>&1 > /dev/null ")
+            command_stat = os.system(f"sshpass -p {self.passwd.get_edit_text()} scp -o StrictHostKeyChecking=no -qp {file} {self.user.get_edit_text()}@{self.des_ip.get_edit_text()}:{self.des_dir.get_edit_text()}      2>&1 > /dev/null ")
             # os.system(f"echo ''  > 123")
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
