@@ -2,6 +2,7 @@ show_hide_files: false
 editor: vi
 mouse: true
 short_key:
+  focus_input: /
   cut: X
   refresh: ctrl r
   copyContent: A   #仅图形化界面可用 且需要安装xclip
@@ -9,7 +10,7 @@ short_key:
   term: ctrl t
   quitTerm: ctrl q
   createFile: ctrl n
-  deleteFile: ctrl d
+  deleteFile: delete
   copyFile: C
   pasteFile: V
   goTo: O
@@ -24,6 +25,7 @@ short_key:
   chmod: G
   scp: S
   change_mouse_tracing: F
+  choose_host: home
 choose_skin:  gray_black
 skin:
 #  gray_black:   #{'gray_black': [['bigtext', 'light gray', 'dark gray'], [None]]}

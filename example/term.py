@@ -2,8 +2,13 @@ import urwid
 
 def main():
     urwid.set_encoding('utf8')
-    term = urwid.Terminal(('sshpass','-p','Wlw12345','ssh','root@113.31.106.3'), encoding='utf-8',escape_sequence='"ctrl a"')
 
+    term = urwid.Terminal(('sshpass','-p','Wlw123','ssh','wlw@127.0.0.1','-t','vi','/home/wlw/test.yaml'), encoding='utf-8',env={'SHELL': '/bin/sh'},escape_sequence='"ctrl a"')
+    # term = urwid.Terminal('None')
+
+
+
+    # term = urwid.Terminal(None, encoding='utf-8')
     mainframe = urwid.LineBox(
         # urwid.Pile([
             term
@@ -30,8 +35,10 @@ def main():
         unhandled_input=handle_key)
 
     term.main_loop = loop
-    #term.main_loop.stop()
+    # term.respond('o\n')
+    # term.main_loop.stop()
     loop.run()
 
 if __name__ == '__main__':
     main()
+    # print()

@@ -6,9 +6,9 @@ import datetime
 import psutil
 import yaml
 import pyperclip
+import base64
 
-
-
+#使用dir的
 with open('setting.yaml','r') as config:
     setting=yaml.safe_load(config)
 Loop=None               #使用loop来承载 self.loop 对象
@@ -17,8 +17,25 @@ original_buttons=None   #主要是exterfonts下的_ge_widget_list获取的按钮
 views=None
 file_list=[]            #用于承载选择的文件列表
 pop_up=None
-ssh_login=('sshpass','-p','Wlw12345','ssh','-o', 'StrictHostKeyChecking=no','root@113.31.106.3')
-# scp=sshpass -p Wlw123 ssh wlw@127.0.0.1  'sshpass -p Wlw123 scp /home/wlw/PycharmProjects/pythonProject/example/term.py  wlw@127.0.0.1:/home/wlw/'
+exlist=None     #用于创建选择主机列表内容
+
+try: #判断字段是否有上次登录主机ip 如果为空那么就设置为本机
+    with open('secret.yaml', 'r') as f:
+        host_data = yaml.safe_load(f)
+
+    host=host_data['last_login_ip']
+    for i in host_data['hosts']:
+        if i.get(host):   #如果匹配的就获取对应的内容
+            host_info = i.get(host)
+            break
+
+    ssh_login = ('sshpass', '-p', f'{base64.b64decode(host_info["password"]).decode("utf-8")}', 'ssh', '-o', 'StrictHostKeyChecking=no','-o', 'ConnectTimeout=10',f'{host_info["username"]}@{host}','-p',f'{host_info["port"]}')
+    ssh_exec_complex = f'sshpass -p {base64.b64decode(host_info["password"]).decode("utf-8").strip()} ssh -o  StrictHostKeyChecking=no  -o ConnectTimeout=10  {host_info["username"]}@{host} -p {host_info["port"]}'
+
+except Exception as e:
+    #如果报错则返回内容空字符串
+    ssh_login=''
+    ssh_exec_complex=''
 
 class SwitchingPadding(urwid.Padding):
     def padding_values(self, size, focus):
@@ -32,7 +49,7 @@ class SwitchingPadding(urwid.Padding):
 
 def ctrl_opeater(opeater):
     '''
-    用于显示快捷键提示 操作列表重新写入之后该函数自动操作添加到列表中
+    用于显示提示快捷键提示 操作列表重新写入之后该函数自动操作添加到列表中
     :param opeater: 操作字典
     :return: oper_list
     '''
@@ -55,19 +72,29 @@ def file_dir():
     # getFileInfo('/home/wlw/PycharmProjects/pythonProject')
     with open('dir.yaml', 'r') as f:
         datas = yaml.safe_load(f)
+
     dir_path=datas['Dir']
-    if setting['show_hide_files']:
-        output = os.popen(f"ls -lAhF '{dir_path}'")
+    #os.system(f'echo "{ssh_exec_complex.strip()}" > 123')
+    if setting['show_hide_files']:  #开启显示
+        # os.system()
+
+        output = os.popen(f"{ssh_exec_complex} ls -lAhF '{dir_path}'")
     else:
-        output = os.popen(f"ls -lhF '{dir_path}'")
+        # os.system(f'echo "{ssh_exec_complex}"> 123 ')
+        output = os.popen(f"{ssh_exec_complex} ls -lhF '{dir_path}'")
+
+            # pass
     # print(output)
     dir = []
     file = []
+
     for i in output:
         if i.strip().split(' ')[0] == 'total':
             continue
         output_list = i.strip().split(' ')
+        # os.system(f"echo '{i}' >> 123")
         output_list = [ii for ii in output_list if (len(str(ii)) != 0)]  # 去除列表空值
+        #os.system(f"echo {output_list} > 123")
         if output_list[0][0] == 'd':
             dir.append(output_list)
         elif output_list[0][0] == 'l' and output_list[-1][-1] == '/':
@@ -82,17 +109,50 @@ def file_dir():
             file.append(output_list)
         else:
             file.append(output_list)
+    # os.system(f"echo '{output_list}' >123")
     return file, dir
+
+def create_host_button():
+    host_list=[]
+    font_buttons=[]
+    host_pass={}
+    with open('secret.yaml','r') as hosts:
+        hosts_data=yaml.safe_load(hosts)
+    for host in hosts_data['hosts']:
+        for key,values in host.items():
+            # if host.keys()[0] == ip:
+            passwd = values['password']
+            debs64 = base64.b64decode(passwd)
+            passwd = debs64.decode()
+            host_pass.setdefault(key,passwd)
+            user = values['username']
+            port =values['port']
+            # host_list.append([key,user,passwd,port])
+            button_format=f' {key}{count_str(key[:30])}{user}{count_str(user)}{port}{count_str(port)}'
+            host_list.append(button_format)
+    for host_info in host_list:
+        if host_info != ' ':
+            w = hostbutton(host_info)  #未创建自定义按钮
+            # w.create_appwarp(w)  # 对按钮创建Attrwarp
+            w = urwid.AttrWrap(w, 'button normal', 'dir button select')
+            font_buttons.append(w)
+    return font_buttons
+
+
+
+
+
 
 
 def reload_dir():
-    font_buttons = create_button_list(*file_dir())
-    exterfonts._set_widget_list(font_buttons)
+    # global exterfonts
+    font_buttons = create_button_list(*file_dir())  #创建新的按钮
+    exterfonts._set_widget_list(font_buttons)       #设置按钮为新的按钮
     global original_buttons
     global file_list
-    original_buttons = exterfonts._get_widget_list()
+    original_buttons = exterfonts._get_widget_list()  #得到初始按钮列表  主要是搜索使用的时候会如果不使用初始按钮列表的话列表搜索时会越来越少按钮
     file_list = []
-    return exterfonts
+    return exterfonts                                 #返回按钮列表对象 可设置初始焦点
 
 def create_button_list(file, dir):
     font_buttons=[]
@@ -126,7 +186,12 @@ def filename_handling(name):
         file = name[-1] + ' ' + name[-2] + ' ' + name[-3]
     else:
         # os.system(f'echo {name} >> 123')  #正常文件处理 name[-1] 是文件名  -rw-r--r-- 1 root root   56964 3月  24  2020 libffi-dev_3.3-4_amd64.deb
-        file = name[-1]
+        #但是如果是空格不行 如 wlw 1.txt
+        if len(name) > 9:
+            file = name[8]
+        else:
+            file = name[-1]
+        # file = name[8]
     user_group = name[2] + '/' + name[3]
     chmod = name[0]
     file_size = name[4]
@@ -173,6 +238,18 @@ def create_file_button(name):
         w = urwid.Button(' ')
         w = urwid.AttrWrap(w, 'button normal', 'file button select')
     return w
+def create_host(host='127.0.0.1',username='1',password='1',port='22'):
+    with open('secret.yaml', 'r') as f:
+        host_data = yaml.safe_load(f)
+    password=base64.b64encode(password.encode('utf-8'))
+    password = password.decode("utf-8")
+    host_info={
+        host:{"username":username,"password":password,"port":port}
+    }
+    host_data['hosts'].append(host_info)
+
+    with open('secret.yaml', 'w') as f:
+        yaml.dump(host_data, f)
 
 #创建同种button按钮的按键可以做到不一样的效果
 #目录按钮的重写类用于对按钮进行逻辑操作
@@ -186,14 +263,51 @@ class file_handling:  #文件二次处理类
             dates = files[6]
         else:
             self.file = files[0]
+
             user_group = files[1]
             chmod = files[2]
             file_size = files[3]
             dates = files[4]
         return f' {self.file[:30]}{count_str(self.file[:30])}{user_group}{count_str(user_group)}{chmod}{count_str(chmod)}{file_size}{count_str(file_size)}{dates}'
 
-class DirButton(urwid.Button,file_handling):
 
+class hostbutton(urwid.Button):
+
+    def keypress(self, size, key):
+        global ssh_login
+        global ssh_exec_complex
+        global host
+        file_data = [ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
+        current_host=file_data[0]
+        if key in ('enter',) :
+            # os.system(f"echo '{host}' > 123")
+            with open('secret.yaml','r') as f:
+                host_data=yaml.safe_load(f)
+            #os.system(f"echo {host_data['hosts']} > 123")
+            for i in host_data['hosts']:
+                # host_info=i['hosts'][host]
+                if i.get(current_host):
+                    host_info=i.get(current_host)
+            host_data['last_login_ip'] = current_host
+            with open('secret.yaml', 'w') as f:
+                yaml.dump(host_data, f)
+            host=current_host
+            ssh_login = ('sshpass', '-p', f'{base64.b64decode(host_info["password"]).decode("utf-8")}', 'ssh', '-o', 'StrictHostKeyChecking=no','-o', 'ConnectTimeout=10', f'{host_info["username"]}@{current_host}','-p',f'{host_info["port"]}')
+            ssh_exec_complex =f'sshpass -p {base64.b64decode(host_info["password"]).decode("utf-8").strip()} ssh -o  StrictHostKeyChecking=no -o ConnectTimeout=10 {host_info["username"]}@{current_host}  -p {host_info["port"]}'
+            exlist[-2]=reload_dir()  #这里要重新修改
+            exlist[1]=urwid.Text(f"   文件名称{count_str('文件名称')}用户/组{count_str('用户/组')}权限大小{count_str('权限大小')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
+
+
+
+            #需要写入上次主机登录内容 host 为主机ip
+
+            # os.system(f"echo '{exlist}' > 123")
+        else:
+            return key
+
+
+
+class DirButton(urwid.Button,file_handling):
 
     def create_appwarp(self,w):
         file_data=[ii for ii in self.label.strip().split(" ") if (len(str(ii)) != 0)]
@@ -280,14 +394,14 @@ class FileButton(urwid.Button,file_handling):
                 datas = yaml.safe_load(f)
             if filename.split('.')[-1] == 'tgz' or  filename.split('.')[-1]=='gz' and filename.split('.')[-2]=='tar' :
                 #os.system(f"echo {datas['Dir']}{filename} >123")
-                os.system(f'tar -zxf {datas["Dir"]}{filename} -C {datas["Dir"]} ')
+                os.system(f'{ssh_exec_complex} tar -zxf {datas["Dir"]}{filename} -C {datas["Dir"]} ')
                 # global original_buttons
                 # font_buttons = create_button_list(*file_dir())
                 # exterfonts._set_widget_list(font_buttons)
                 # original_buttons = exterfonts._get_widget_list()
                 reload_dir()
             if filename.split('.')[-1] == 'zip' :
-                os.system(f'unzip  {datas["Dir"]}{filename} -d {datas["Dir"]}  2>&1 > /dev/null ')
+                os.system(f'{ssh_exec_complex} unzip  {datas["Dir"]}{filename} -d {datas["Dir"]}  2>&1 > /dev/null ')
                 reload_dir()
             return
         elif key == setting['short_key']['tail']:
@@ -298,6 +412,7 @@ class FileButton(urwid.Button,file_handling):
             Loop.widget = exit
 
         elif key == setting['short_key']['less']:
+            #os.system(f'echo 123 > 123')
             less_term=Showfile(views,filename,'less')
             exit = urwid.LineBox(less_term)
             exit = urwid.Overlay(exit, views, 'center', 150, 'middle', 150)
@@ -307,7 +422,7 @@ class FileButton(urwid.Button,file_handling):
                 datas = yaml.safe_load(f)
             backup_file=datas['Dir']+filename+'.bak'
             current_file=datas['Dir']+filename
-            os.system(f"cp -af '{current_file}' '{backup_file}' ")
+            os.system(f"{ssh_exec_complex} cp -af '{current_file}' '{backup_file}' ")
             #exterfonts._set_widget_list()
             #global original_buttons
 
@@ -325,8 +440,9 @@ class FileButton(urwid.Button,file_handling):
                 file_content = f.read()
             pyperclip.copy(file_content)
         elif key in ('enter',):
-            # self._emit('click') #点击文件按钮发送click信号给按钮本身 模拟点击操作
-            pop_up(self.label.strip().split(" ")[0])
+            # self._emit('click') #点击文件按钮发送clic k信号给按钮本身 模拟点击操作
+            # pop_up(self.label.strip().split(" ")[0])
+            pop_up(self.file.strip().split(" ")[0])
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -351,11 +467,16 @@ class Showfile(urwid.Terminal):
             datas = yaml.safe_load(f)
         #os.system(f"echo '{filename}' > 123")
         if exec == 'tail':
-            self.__super.__init__(('tail','-f', '-n 300',f'{datas["Dir"]+filename}'), encoding='utf-8') #创建一个终端
+            command = ssh_login + ('-t',) +('tail','-f', '-n 300',f'{datas["Dir"]+filename}')
+            #self.__super.__init__(command, encoding='utf-8') #创建一个终端
             # Loop.draw_screen()
         elif exec == 'less':
-            self.__super.__init__(('less','-N','-m',f'{datas["Dir"] + filename}'), encoding='utf-8')  # 创建一个终端
-            Loop.draw_screen()
+            command = ssh_login+ ('-t',) + ('less', '-N', '-m', f'{datas["Dir"] + filename}')  #远程执行一些有交互操作的命令 ssh -t 开启pty终端
+            #os.system(f"echo '{bc}' >  123")
+
+
+        self.__super.__init__(command, encoding='utf-8')  # 创建一个终端
+        Loop.draw_screen()
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
 
@@ -486,11 +607,13 @@ class TermPop(urwid.Terminal):
     '''
     终端函数可以自主退出终端弹窗窗口
     '''
-    def __init__(self, view):
+
+    def __init__(self, view):  #view代表页面内容
+        global ssh_login
         self.view = view
         urwid.set_encoding('utf8')
-        self.__super.__init__(None, encoding='utf-8',escape_sequence="ctrl s")  # 创建一个终端,把ctrl+a逃逸键释放出来  这个键是用来架上pgup/down 翻页终端的
-        self.main_loop = Loop  # 这一步让终端流畅运行
+        self.__super.__init__(ssh_login, encoding='utf-8',escape_sequence="ctrl s")  # 创建一个终端,把ctrl+a逃逸键释放出来  这个键是用来架上pgup/down 翻页终端的
+        self.main_loop = Loop  # 让终端接收外部loop使其流畅运行
 
     def keypress(self, size, key):
 
@@ -635,54 +758,53 @@ class PopUpDialog(urwid.Terminal):
            #self._emit("close")
         if self.terminated:
             return key
-
-        if key == "window resize":
-            width, height = size
-            self.touch_term(width, height)
-            return
-
-        if (self.last_key == self.escape_sequence
-            and key == self.escape_sequence):
-            # escape sequence pressed twice...
-            self.last_key = key
-            self.keygrab = True
-            # ... so pass it to the terminal
-        elif self.keygrab:
-            if self.escape_sequence == key:
-                # stop grabbing the terminal
-                self.keygrab = False
-                self.last_key = key
-                return
-        else:
-            if key == 'page up':
-                self.term.scroll_buffer()
-                self.last_key = key
-                self._invalidate()
-                return
-            elif key == 'page down':
-                self.term.scroll_buffer(up=False)
-                self.last_key = key
-                self._invalidate()
-                return
-            elif (self.last_key == self.escape_sequence
-                  and key != self.escape_sequence):
-                # hand down keypress directly after ungrab.
-                self.last_key = key
-                return key
-            elif self.escape_sequence == key:
-                # start grabbing the terminal
-                self.keygrab = True
-                self.last_key = key
-                return
-            elif self._command_map[key] is None or key == 'enter':
-                # printable character or escape sequence means:
-                # lock in terminal...
-                self.keygrab = True
-                # ... and do key processing
-            else:
-                # hand down keypress
-                self.last_key = key
-                return key
+        # if key == "window resize":  #终端初始化无法操作到字符就是因为被控制了开始初始化判断是否有方向键up or down的操作
+        #     width, height = size
+        #     self.touch_term(width, height)
+        #     return
+        #
+        # if (self.last_key == self.escape_sequence
+        #     and key == self.escape_sequence):
+        #     # escape sequence pressed twice...
+        #     self.last_key = key
+        #     self.keygrab = True
+        #     # ... so pass it to the terminal
+        # elif self.keygrab:
+        #     if self.escape_sequence == key:
+        #         # stop grabbing the terminal
+        #         self.keygrab = False
+        #         self.last_key = key
+        #         return
+        # else:
+        #     if key == 'page up':
+        #         self.term.scroll_buffer()
+        #         self.last_key = key
+        #         self._invalidate()
+        #         return
+        #     elif key == 'page down':
+        #         self.term.scroll_buffer(up=False)
+        #         self.last_key = key
+        #         self._invalidate()
+        #         return
+        #     elif (self.last_key == self.escape_sequence
+        #           and key != self.escape_sequence):
+        #         # hand down keypress directly after ungrab.
+        #         self.last_key = key
+        #         return key
+        #     elif self.escape_sequence == key:
+        #         # start grabbing the terminal
+        #         self.keygrab = True
+        #         self.last_key = key
+        #         return
+        #     elif self._command_map[key] is None or key == 'enter':
+        #         # printable character or escape sequence means:
+        #         # lock in terminal...
+        #         self.keygrab = True
+        #         # ... and do key processing
+        #     else:
+        #         # hand down keypress
+        #         self.last_key = key
+        #         return key
 
         self.last_key = key
 
@@ -791,8 +913,8 @@ class Scpfile(urwid.WidgetWrap):
                 file=file.strip('*')
 
                 # command_stat = os.system(f"expect scp.exp {self.user.get_edit_text()} {self.passwd.get_edit_text()} {self.des_ip.get_edit_text()} {file} {self.des_dir.get_edit_text()} 2>&1 > /dev/null ")
-            command_stat = os.system(f"sshpass -p {self.passwd.get_edit_text()} scp -o StrictHostKeyChecking=no -qp {file} {self.user.get_edit_text()}@{self.des_ip.get_edit_text()}:{self.des_dir.get_edit_text()}      2>&1 > /dev/null ")
-            # os.system(f"echo ''  > 123")
+            command_stat = os.system(f"{ssh_exec_complex} sshpass -p {self.passwd.get_edit_text()} scp -o StrictHostKeyChecking=no -qp {file} {self.user.get_edit_text()}@{self.des_ip.get_edit_text()}:{self.des_dir.get_edit_text()}      2>&1 > /dev/null ")
+            #os.system(f"echo '{ssh_exec_complex} sshpass -p {self.passwd.get_edit_text()} scp -o StrictHostKeyChecking=no -qp {file} {self.user.get_edit_text()}@{self.des_ip.get_edit_text()}:{self.des_dir.get_edit_text()}'   > cmd")
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
             else:
@@ -923,9 +1045,9 @@ class Jump_dir(urwid.WidgetWrap):
 class Delfile(urwid.WidgetWrap):
     def  delete_file_or_dir(self,widget):
             global file_list
-            files=[ f"'{i.strip('*')}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
+            files=[f"'{i.strip('*')}'"  for i in file_list]  #给命令加上单引号用于剥夺特殊符号的含义
             files = " ".join(files)
-            command_stat = os.system(f"rm -rf  {files}  ")
+            command_stat = os.system(f"{ssh_exec_complex} rm -rf  {files}")
             if command_stat != 0:
                 self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions '))
             else:
@@ -986,24 +1108,24 @@ class Zipfile(urwid.WidgetWrap):
             dirname=self.Dir.get_edit_text()
             zipname=self.zipname.get_edit_text()
             if suffix == 'tgz' or suffix ==  'tar.gz':
-                compress_command=os.system(f"tar -zcf  {dirname}{zipname}.{suffix}  {files}")
+                compress_command=os.system(f"{ssh_exec_complex} tar -zcf  {dirname}{zipname}.{suffix}  {files}")
             elif suffix == 'rar':
-                check_rar = os.system(f"rar -v 2> /dev/null")
+                check_rar = os.system(f" {ssh_exec_complex}  rar -v 2> /dev/null")
                 #os.system(f" echo '{check_rar}' >> 123")
                 if check_rar != 0:
                     self.pile._get_widget_list().append(urwid.Text(' Not install rar!'))
                     compress_command=1
                 else:
-                    compress_command = os.system(f"rar a  {dirname}{zipname}.{suffix}  {files}")
+                    compress_command = os.system(f"{ssh_exec_complex}  rar a  {dirname}{zipname}.{suffix}  {files}")
             elif suffix == 'zip':
-                check_rar = os.system(f"zip -v 2> /dev/null")
+                check_rar = os.system(f"{ssh_exec_complex}  zip -v 2> /dev/null")
                 if check_rar != 0:
                     self.pile._get_widget_list().append(urwid.Text(' Not install Zip!'))
                     compress_command = 1
                 else:
-                    compress_command = os.system(f"zip -q -r  {dirname}{zipname}.{suffix}  {files}")
+                    compress_command = os.system(f"{ssh_exec_complex}  zip -q -r  {dirname}{zipname}.{suffix}  {files}")
             elif suffix == 'tar':
-                compress_command = os.system(f"tar -cf  {dirname}{zipname}.{suffix}  {files}")
+                compress_command = os.system(f"{ssh_exec_complex}  tar -cf  {dirname}{zipname}.{suffix}  {files}")
 
             if compress_command != 0:
 
@@ -1093,9 +1215,9 @@ class TouchFile(urwid.WidgetWrap):
             dir_path = self.Dir.get_text()[0].strip()
         if file_or_dir =='File':
            #os.system(f"echo '{dir_path}' > 1234 ")
-            command_stat=os.system(f"touch '{dir_path}/{self.filename.get_text()[0]}' 2> /dev/null ")
+            command_stat=os.system(f"{ssh_exec_complex}  touch '{dir_path}/{self.filename.get_text()[0]}' 2> /dev/null ")
         else:
-            command_stat = os.system(f"mkdir -p '{dir_path}/{self.filename.get_text()[0]}' 2> /dev/null ")
+            command_stat = os.system(f"{ssh_exec_complex}  mkdir -p '{dir_path}/{self.filename.get_text()[0]}' 2> /dev/null ")
         if command_stat!=0:
             self.pile._get_widget_list().append(urwid.Text(' Failed! Please check permissions or dir not exist '))
         else:
@@ -1195,9 +1317,9 @@ class Chmod(urwid.WidgetWrap):
 
         permit_num=permission_change(update_permit)                   #经过权限判断处理会返回数字如 777
         #os.system(f"echo '{permit_num}' > 123")
-        chmod_command = os.system(f"chmod  {permit_num} '{dir_path}{self.chmod_name}' 2> /dev/null ")
-        chown_command=os.system(f"chown '{self.user.get_text()[0].strip()}' '{dir_path}{self.chmod_name}' 2> /dev/null ")
-        chgrp_command = os.system( f"chgrp  '{self.grouper.get_text()[0].strip()}'  '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        chmod_command = os.system(f"{ssh_exec_complex} chmod  {permit_num} '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        chown_command=os.system(f"{ssh_exec_complex}  chown '{self.user.get_text()[0].strip()}' '{dir_path}{self.chmod_name}' 2> /dev/null ")
+        chgrp_command = os.system( f"{ssh_exec_complex}  chgrp  '{self.grouper.get_text()[0].strip()}'  '{dir_path}{self.chmod_name}' 2> /dev/null ")
         if chown_command!=0 or chmod_command!=0 or chgrp_command !=0:
             self.pile._get_widget_list().append(urwid.Text(' Failed! Do you have root permission or the user exist?'))
         else:
@@ -1351,7 +1473,11 @@ class BigTextDisplay:
             #os.system(f"echo {button_label} >> 123")
             #
             import re
-            if re.findall(f'(.*{label}.*)', button_label,re.IGNORECASE):  #匹配项目会出现在列表如匹配apache 列表为['apache']
+            # if label in ['[','*','(']:
+
+            #     label='\\'+ label
+            labels=re.escape(label)  #自动对特殊字符进行添加转义符并且重赋值给其他变量不然会修改输入按钮中label的值造成卡死
+            if re.findall(f'(.*{labels}.*)', button_label,re.IGNORECASE):  #匹配项目会出现在列表如匹配apache 列表为['apache']
                 font_buttons.append(buttons)
         if font_buttons==[]:                  #在没有匹配项时添加两个空白的文件按钮
             font_buttons=[urwid.Button(''),urwid.Button(' ')]
@@ -1364,19 +1490,21 @@ class BigTextDisplay:
     def create_button(self):
         font_buttons = []
         global exterfonts
+        global original_buttons
         font_buttons=create_button_list(*file_dir())
         chars = urwid.Divider()
         #os.system(f'echo {len(font_buttons)} > 123')
         self.fonts = urwid.Pile(font_buttons)
-        global original_buttons
-        original_buttons=self.fonts._get_widget_list()  #使用全局变量来承载创建时的所有按钮的原始列表，在变换字符的同时保证都是对原始目录的筛选，避免删除字符无法回退到之前目录下
 
+        original_buttons=self.fonts._get_widget_list()  #使用全局变量来承载创建时的所有按钮的原始列表，在变换字符的同时保证都是对原始目录的筛选，避免删除字符无法回退到之前目录下
         #os.system(f"echo {type(self.fonts)} > 123")
         #os.system(f"echo '{original_buttons._get_widget_list()}' > 123")
 
-        exterfonts=self.fonts    #传递给外部函数或者全局需要使用self.fonts的地方
+        exterfonts=self.fonts    #代表多行按钮 传递给外部函数或者全局需要使用self.fonts的地方
         self.col = urwid.Columns([('fixed', 0, chars), self.fonts], 0,
                             focus_column=1)
+
+
 
 
 
@@ -1404,8 +1532,6 @@ class BigTextDisplay:
 
         bt = urwid.Filler(bt, 'middle',None)
 
-
-#sed 可替换
         oper=(
             u'Ctrl+a  Copy the file contents ',
             u'Ctrl+w  Quit to destop',
@@ -1413,7 +1539,7 @@ class BigTextDisplay:
             u'Ctrl+q  Quit to Term',
             u'Ctrl+r  refresh',
             u'Ctrl+n  Create a file',
-            u'Ctrl+d  Delete selected files',
+            u'Delete  Delete selected files',
             u'space   Selected files',
             u'?       Help'
         )
@@ -1429,8 +1555,9 @@ class BigTextDisplay:
 
 
         #ip = urwid.Text(f'192.168.1.1 :IP',align='right')
-        self.cpu = urwid.Text(f'24% :Cpu',align='right')
-        self.mem = urwid.Text(f'30% :Mem',align='right')
+        self.cpu = urwid.Text(f'0% :Cpu',align='right')
+        self.mem = urwid.Text(f'0% :Mem',align='right')
+        self.address = urwid.Text(f'127.0.0.1 : Address', align='right')
         self.In = urwid.Text(f' ',align='right')
         self.dates=urwid.Text(f'2022-01-01 01:01',align='right')
         info=urwid.SimpleListWalker([
@@ -1440,9 +1567,11 @@ class BigTextDisplay:
             urwid.Divider(),
             urwid.Divider(),
             urwid.Divider(),
-            urwid.Divider(),
+            self.address,
             self.In,
+            urwid.Divider(),
             self.dates,
+
         ])
 
         info=urwid.ListBox(info)
@@ -1465,26 +1594,62 @@ class BigTextDisplay:
         #chosen_font_rb.set_state(True) # causes set_font_event call
 
         # Create Edit widget
-        self.create_button()
-        edit = self.create_edit("", "", self.edit_change_event)
+        with open('secret.yaml', 'r') as f:
+            self.host_data = yaml.safe_load(f)
+        last_login=self.host_data['last_login_ip']
+        files = urwid.Text(f"   文件名称{count_str('文件名称')}用户/组{count_str('用户/组')}权限大小{count_str('权限大小')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
+
+        if last_login:  #如果上次没有登录过则为空 需要重新选择主机
+            host_info=self.return_secret_info(last_login)  #host_info=(Wlw123, wlw, 22, 127.0.0.1)
+            # os.system(f"echo '{host_info}' > 123")
+            # self.create_button()
+            if host_info==False:
+                files = urwid.Text(f"   IP地址{count_str('IP地址')}用户名{count_str('用户名')}端口{count_str('端口')}")
+                host_buttons = create_host_button()
+                chars = urwid.Divider()
+                # os.system(f'echo {len(font_buttons)} > 123')
+                host_fonts = urwid.Pile(host_buttons)
+                self.col = urwid.Columns([('fixed', 0, chars), host_fonts], 0,
+                                         focus_column=1)
+            else:
+                self.create_button()
+
+        else:
+            #创建出按钮并且选择ip出来选择对应ip的内容
+            files = urwid.Text(f"   IP地址{count_str('IP地址')}用户名{count_str('用户名')}端口{count_str('端口')}")
+            host_buttons = create_host_button()
+            chars = urwid.Divider()
+            # os.system(f'echo {len(font_buttons)} > 123')
+            host_fonts = urwid.Pile(host_buttons)
+            self.create_button()
+            self.col = urwid.Columns([('fixed', 0, chars), host_fonts], 0,
+                                     focus_column=1)
+
+
+
+
         # ListBox
 
-
+        edit = self.create_edit("", "", self.edit_change_event)
         self.bt = urwid.Pile([bt, edit], focus_item=1)
 
-        files = urwid.Text(f"   文件名称{count_str('文件名称')}用户/组{count_str('用户/组')}权限大小{count_str('权限大小')}文件大小{count_str('文件大小')}创建时间{count_str('创建时间')}")
 
         last=urwid.Text(u' ')
         last=urwid.AttrMap(last,'edit')
+
+
         self.page_list= [self.bt,files,self.col,last]
         # l = [self.bt, last]
 
         self.l=urwid.SimpleListWalker(self.page_list)
-        w = urwid.ListBox(self.l)
+        global exlist
+        exlist=self.l
+
+
+        w = urwid.ListBox(exlist)
 
         global focus
         focus=w
-
         w = urwid.AttrWrap(w, 'body')
         hdr = urwid.Text("Lin v1.0 - Ctrl+w exits.")
         hdr = urwid.AttrWrap(hdr, 'header')
@@ -1496,13 +1661,45 @@ class BigTextDisplay:
         exit = urwid.Overlay(exit, w, 'center', None, 'middle', None)
 
         return w, exit
+    def change_host_view(self):
+
+        host_buttons = create_host_button()
+        chars = urwid.Divider()
+        # os.system(f'echo {len(font_buttons)} > 123')
+        host_fonts = urwid.Pile(host_buttons)
+        self.create_button()
+        self.col = urwid.Columns([('fixed', 0, chars), host_fonts], 0,
+                                 focus_column=1)
+        # self.l[-2]=
+
+    def return_secret_info(self,ip):
+        # os.system(f'echo {ip} >> 1234')
+        find_host=False
+        for host in self.host_data["hosts"]:  #host = [{127.0.0.1:{username: xxx,}}]
+            # if host.keys()[0] == ip:
+            #os.system(f"echo {self.host_data['hosts']} > 123")
+            if host.get(ip):
+                passwd = host[ip]['password']
+                debs64 = base64.b64decode(passwd)
+                passwd = debs64.decode()
+                user = host[ip]['username']
+                port =host[ip]['port']
+                find_host=True
+                break
+        if not find_host:
+            return False
+        # ip = self.host_data["hosts"][f'{host}']
+        else:
+            return (passwd, user, port, ip)
     def change_data(self):
+        global host
         while True:
             time.sleep(1)
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
             self.In.set_text(f'【 {datas["Dir"]} 】：Location')
             dateTime_p = datetime.datetime.now()
+            self.address.set_text(f'{host}：Address')
             str_p = datetime.datetime.strftime(dateTime_p, '%Y-%m-%d %H:%M:%S')
             self.dates.set_text(str_p)
             self.cpu.set_text(str(psutil.cpu_percent(None))+'% :Cpu')
@@ -1528,17 +1725,23 @@ class BigTextDisplay:
         global file_list
         global original_buttons
         global  focus
-        # if key == 'G':
+        # if key == 'G': #匹配文字
         #     pass
         # if key == 'S':
         #     pass
         # if key == 'D':
-        #     self.l[-1]=self.col
-        if key == '/':
-            global focus
+        #      # create_host()
+        if key == setting['short_key']['choose_host']:
+            files = urwid.Text(f"   IP地址{count_str('IP地址')}用户名{count_str('用户名')}端口{count_str('端口')}")
+            self.change_host_view()
+            self.l[-2]=self.col
+            self.l[1]=files
+        if key == setting['short_key']['focus_input']:
             focus.set_focus(0)
         if key== setting['short_key']['change_mouse_tracing']:
+            # print(self.loop.handle_mouse)
             if  self.loop.handle_mouse:
+
                 self.loop.handle_mouse= False
             else:
                 self.loop.handle_mouse = True
@@ -1580,10 +1783,10 @@ class BigTextDisplay:
                 current_path = datas['Dir']
                 if self.copy_file_list!=[] and self.copy:
                     for file_path in self.copy_file_list:  #可以加入进度条模式
-                        os.system(f"cp -af '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
+                        os.system(f"{ssh_exec_complex}  cp -af '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
                 elif  self.copy_file_list!=[] and self.copy==False:
                     for file_path in self.copy_file_list:  #可以加入进度条模式
-                        os.system(f"mv '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
+                        os.system(f"{ssh_exec_complex}  mv '{file_path.strip('*')}' '{current_path}' 2> /dev/null")
                 else:
                     return
                 # font_buttons = create_button_list(*file_dir())
@@ -1630,10 +1833,10 @@ class BigTextDisplay:
             按键ctrl+t 召唤终端使用overload覆盖层的方式让终端浮于view层上
             '''
             urwid.set_encoding('utf8')
-            term=TermPop(self.view)
-            exit = urwid.LineBox(term)
-            exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)  #这里300和300不设置会报错
-            self.loop.widget = exit
+            term=TermPop(self.view)  #按键创建一个终端窗口
+            exit = urwid.LineBox(term)  #创建一个类型为linebox把终端裹起
+            exit = urwid.Overlay(exit, self.view, 'center', 300, 'middle', 300)  #设置overlay浮在上层 这里300和300不设置会报错
+            self.loop.widget = exit     #主窗口的widger设为overlay层
             return
 
         elif key == setting['short_key']['refresh']:  #刷新
@@ -1657,7 +1860,7 @@ class BigTextDisplay:
                 u'    Ctrl+t  Term',
                 u'    Ctrl+q  Quit to Term',
                 u'    Ctrl+n  Create a file',
-                u'    Ctrl+d  Delete selected files',
+                u'    Delete  Delete selected files',
                 u'    C       Copy selected files',
                 u'    V       Paste file',
                 u'    X       Cut selected file',
@@ -1693,8 +1896,6 @@ class BigTextDisplay:
 
         else:
             return
-
-
 def main():
     urwid.Button.button_left = urwid.Text("|")
     urwid.Button.button_right =urwid.Text("|")
