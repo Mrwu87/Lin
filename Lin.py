@@ -37,6 +37,60 @@ except Exception as e:
     ssh_login=''
     ssh_exec_complex=''
 
+class ChangeFocus(urwid.Pile):  #该类可以使用tab键进行往下跳转
+    def __init__(self, widget_list):
+        self.__super.__init__(widget_list)
+    def keypress(self, size, key ):
+        """Pass the keypress to the widget in focus.
+        Unhandled 'up' and 'down' keys may cause a focus change."""
+
+        if not self.contents:
+            return key
+        item_rows = None
+        if len(size) == 2:
+            item_rows = self.get_item_rows(size, focus=True)
+        #
+        i = self.focus_position
+        if self.selectable():
+            tsize = self.get_item_size(size, i, True, item_rows)
+            key = self.focus.keypress(tsize, key)
+            if self._command_map[key] not in ('next selectable','cursor up', 'cursor down',):  #tab键的别名是next selectable
+                return key
+
+        if self._command_map[key] == 'cursor up' :
+            candidates = list(range(i-1, -1, -1)) # count backwards to 0
+
+        else: # self._command_map[key] == 'cursor down'
+            candidates = list(range(i+1, len(self.contents)))
+
+        if not item_rows:
+            item_rows = self.get_item_rows(size, focus=True)
+
+        for j in candidates:
+            if not self.contents[j][0].selectable():
+                continue
+
+            self._update_pref_col_from_focus(size)
+            self.focus_position = j
+            if not hasattr(self.focus, 'move_cursor_to_coords'):
+                return
+
+            rows = item_rows[j]
+            if self._command_map[key] == 'cursor up':
+                rowlist = list(range(rows-1, -1, -1))
+            else: # self._command_map[key] == 'cursor down'
+                rowlist = list(range(rows))
+            for row in rowlist:
+                tsize = self.get_item_size(size, j, True, item_rows)
+                if self.focus_item.move_cursor_to_coords(
+                        tsize, self.pref_col, row):
+                    break
+            return
+
+        # nothing to select
+        return key
+
+
 class SwitchingPadding(urwid.Padding):
     def padding_values(self, size, focus):
         maxcol = size[0]
@@ -231,8 +285,8 @@ def create_file_button(name):
     :return: 已处理好的按钮对象
     '''
     if name != ' ':
-        Attrwarp=FileButton(filename_handling(name))
-        w = ThingWithAPopUp(Attrwarp)
+        Attrwarp=FileButton(filename_handling(name))  #经过文字处理后创建按钮类型对象
+        w = ThingWithAPopUp(Attrwarp)                 #把按钮经过处理进行加上了弹窗
         w = Attrwarp.create_appwarp(w)  #对按钮创建Attrwarp样式
     else:
         w = urwid.Button(' ')
@@ -442,7 +496,7 @@ class FileButton(urwid.Button,file_handling):
         elif key in ('enter',):
             # self._emit('click') #点击文件按钮发送clic k信号给按钮本身 模拟点击操作
             # pop_up(self.label.strip().split(" ")[0])
-            pop_up(self.file.strip().split(" ")[0])
+            pop_up(self.file.strip().split(" ")[0])  #使用变量这个变量代表创建终端页面函数接来文件名,这个变量初始化是没有的，程序启动下面的ThingWithAPopUp把函数挂上才生效
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -612,7 +666,10 @@ class TermPop(urwid.Terminal):
         global ssh_login
         self.view = view
         urwid.set_encoding('utf8')
-        self.__super.__init__(ssh_login, encoding='utf-8',escape_sequence="ctrl s")  # 创建一个终端,把ctrl+a逃逸键释放出来  这个键是用来架上pgup/down 翻页终端的
+        with open('dir.yaml', 'r') as f:
+            datas = yaml.safe_load(f)
+        self.__super.__init__(ssh_login + ('-t','cd',f'{datas["Dir"]}', ';', 'bash'), encoding='utf-8',escape_sequence="ctrl s")  # 创建一个终端,把ctrl+a逃逸键释放出来  这个键是用来架上pgup/down 翻页终端的
+
         self.main_loop = Loop  # 让终端接收外部loop使其流畅运行
 
     def keypress(self, size, key):
@@ -888,21 +945,97 @@ class ThingWithAPopUp(urwid.PopUpLauncher):
         global pop_up
 
         #self.abc=self.original_widget
-        pop_up=self.open_pop_up
-
-
+        pop_up=self.open_pop_up  #在这里使用打开弹窗函数
         #FileButton(self.open_pop_up)
 
-    def create_pop_up(self,name):
+    def create_pop_up(self,name):  #如果使用pop的话默认执行这个函数来创建弹窗的
         #os.system(f'echo {self.button.get_label().strip()} > 123')
         pop_up = PopUpDialog(name)  #发送文件名到弹窗终端里
-
-        urwid.connect_signal(pop_up, 'closed',
-                             lambda button: self.close_pop_up())              #假如收到弹窗关闭信号就关闭弹窗
+        urwid.connect_signal(pop_up, 'closed',lambda button: self.close_pop_up())              #假如收到弹窗关闭信号就关闭弹窗,会一直监听
         return pop_up
 
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
+
+class Addhost(urwid.WidgetWrap):
+
+    def closepop(self, widget):
+        urwid.Overlay(self.view, self.exit, 'center', 30000, 'middle',
+                      30000)  # 这里300和300不设置会报错 center 为宽度 middle为高度
+        self.loop_widget.widget = self.view
+
+
+
+    def add_host(self, widget):
+        '''
+        :密码处理
+        :持久化密码文件中
+        :刷新主机列表页面
+        '''
+        # print(self.host_ip.get_text()[0])
+        # os.system(f"echo '{self.passwd.get_edit_text().strip()}'>123")
+        create_host(self.host_ip.get_text()[0],self.username.get_text()[0],self.passwd.get_edit_text().strip(),self.port.get_text()[0])
+        self.loop_widget.widget = self.view
+
+    def __init__(self, view, loop_widget): #view为当前的画面组成
+
+        self.view = view
+        self.loop_widget = loop_widget
+        host_name_txet = urwid.Text("Name：\n")
+        self.host_name = urwid.Edit(edit_text="")
+        host_name = urwid.AttrWrap(self.host_name, 'body')
+
+        port_text = urwid.Text("Port: ")
+        self.port = urwid.Edit(edit_text=f"22")
+        port = urwid.AttrWrap(self.port, 'body')
+
+        host_ip_text = urwid.Text("Host: ")
+        self.host_ip = urwid.Edit(edit_text="")
+        host_ip = urwid.AttrWrap(self.host_ip, 'body')
+
+        username_text = urwid.Text("Username:")
+        self.username = urwid.Edit(edit_text="")
+        username = urwid.AttrWrap(self.username, 'body')
+
+        passwd_txt = urwid.Text("Passwd：")
+        self.passwd = urwid.Edit(edit_text='', mask='*')
+        passwd = urwid.AttrWrap(self.passwd, 'body')
+
+        save= urwid.Button("Save")
+        save_button = urwid.AttrWrap(save, 'button normal', 'dir button select')
+        close_button = urwid.Button("Quit")
+        closed_button = urwid.AttrWrap(close_button, 'button normal', 'delete')
+        widget_list=[
+            host_name_txet, host_name,
+            urwid.Divider(),
+
+            host_ip_text, host_ip,
+            urwid.Divider(),
+
+            port_text,port,
+            urwid.Divider(),
+            urwid.Divider(),
+            username_text, username,
+            urwid.Divider(),
+            passwd_txt, passwd,
+            urwid.Divider(),
+            save_button,
+            closed_button]
+        self.pile = ChangeFocus(widget_list)
+        pop_warp = urwid.LineBox(self.pile)
+        fill = urwid.Filler(pop_warp)
+        self.exit = urwid.LineBox(fill)
+
+        urwid.AttrWrap(self.exit, 'body')
+        self.loop_widget.widget = urwid.Overlay(self.exit, self.view, 'center', 62, 'middle', 32)
+        urwid.connect_signal(save, 'click',
+                             self.add_host)
+        urwid.connect_signal(close_button, 'click',
+                             self.closepop)
+
+
+
+
 
 class Scpfile(urwid.WidgetWrap):
     def  scp_file_or_dir(self,widget):
@@ -1714,7 +1847,7 @@ class BigTextDisplay:
         global Loop
         Loop=self.loop
         global views
-        views=self.view
+        views=self.view  #view为画面组成内容
         threading.Thread(target=self.change_data, args=()).start()
         self.loop.run()
 
@@ -1731,6 +1864,9 @@ class BigTextDisplay:
         #     pass
         # if key == 'D':
         #      # create_host()
+        if key == setting['short_key']['add_host']:
+            Addhost(self.view, self.loop)
+            return
         if key == setting['short_key']['choose_host']:
             files = urwid.Text(f"   IP地址{count_str('IP地址')}用户名{count_str('用户名')}端口{count_str('端口')}")
             self.change_host_view()
@@ -1886,6 +2022,14 @@ class BigTextDisplay:
         elif key == setting['short_key']['quitDestop']:
             self.loop.widget = self.exit_view
             return True
+        # elif key in ('tab',):
+
+        #     self.focus_position = (self.focus_position + 1) % len(self.body.contents)
+        #     if self.focus_position == 0:
+        #         return key
+        # next_focus = (self.columns.focus_position + 1) % len(self.columns.contents)
+        # self.columns.set_focus(next_focus)
+
         elif self.loop.widget != self.exit_view:
             return
         elif key in ('y', 'Y'):

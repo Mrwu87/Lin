@@ -3,7 +3,7 @@ import urwid
 def main():
     urwid.set_encoding('utf8')
 
-    term = urwid.Terminal(('sshpass','-p','Wlw123','ssh','wlw@127.0.0.1','-t','vi','/home/wlw/test.yaml'), encoding='utf-8',env={'SHELL': '/bin/sh'},escape_sequence='"ctrl a"')
+    term = urwid.Terminal(('sshpass','-p','Wlw123','ssh','wlw@127.0.0.1','-t','cd','/home',';','bash'), encoding='utf-8',env={'SHELL': '/bin/sh'},escape_sequence='"ctrl a"')
     # term = urwid.Terminal('None')
 
 

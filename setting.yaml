@@ -26,6 +26,9 @@ short_key:
   scp: S
   change_mouse_tracing: F
   choose_host: home
+  add_host: N
+  delete_host: D
+  edit_host: E
 choose_skin:  gray_black
 skin:
 #  gray_black:   #{'gray_black': [['bigtext', 'light gray', 'dark gray'], [None]]}
