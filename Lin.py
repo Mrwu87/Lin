@@ -2022,14 +2022,6 @@ class BigTextDisplay:
         elif key == setting['short_key']['quitDestop']:
             self.loop.widget = self.exit_view
             return True
-        # elif key in ('tab',):
-
-        #     self.focus_position = (self.focus_position + 1) % len(self.body.contents)
-        #     if self.focus_position == 0:
-        #         return key
-        # next_focus = (self.columns.focus_position + 1) % len(self.columns.contents)
-        # self.columns.set_focus(next_focus)
-
         elif self.loop.widget != self.exit_view:
             return
         elif key in ('y', 'Y'):
