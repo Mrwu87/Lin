@@ -7,7 +7,7 @@ import psutil
 import yaml
 import pyperclip
 import base64
-
+import re
 #使用dir的
 with open('setting.yaml','r') as config:
     setting=yaml.safe_load(config)
@@ -18,7 +18,8 @@ views=None
 file_list=[]            #用于承载选择的文件列表
 pop_up=None
 exlist=None     #用于创建选择主机列表内容
-
+edit_text=None  #用于解决输入之后匹配文件使用enter键弹不出编辑窗口的问题，思路为删除输入框内容然后再写入
+edit_text_value=None  #保存输入框的值
 try: #判断字段是否有上次登录主机ip 如果为空那么就设置为本机
     with open('secret.yaml', 'r') as f:
         host_data = yaml.safe_load(f)
@@ -191,12 +192,6 @@ def create_host_button():
             w = urwid.AttrWrap(w, 'button normal', 'dir button select')
             font_buttons.append(w)
     return font_buttons
-
-
-
-
-
-
 
 def reload_dir():
     # global exterfonts
@@ -496,7 +491,13 @@ class FileButton(urwid.Button,file_handling):
         elif key in ('enter',):
             # self._emit('click') #点击文件按钮发送clic k信号给按钮本身 模拟点击操作
             # pop_up(self.label.strip().split(" ")[0])
+            # os.system(f'echo "{self.file.strip().split(" ")[0]} " > 123')
+            global edit_text
+            global edit_text_value
+            edit_text_value=edit_text.edit_text
+            edit_text.edit_text=''
             pop_up(self.file.strip().split(" ")[0])  #使用变量这个变量代表创建终端页面函数接来文件名,这个变量初始化是没有的，程序启动下面的ThingWithAPopUp把函数挂上才生效
+
         elif key == setting['short_key']['selectedFile']:
             with open('dir.yaml', 'r') as f:
                 datas = yaml.safe_load(f)
@@ -805,7 +806,6 @@ class PopUpDialog(urwid.Terminal):
         urwid.set_encoding('utf8')
         with open('dir.yaml', 'r') as f:
             datas = yaml.safe_load(f)
-
         self.__super.__init__((setting['editor'],f'{datas["Dir"]+filename.strip("*")}'), encoding='utf-8') #创建一个终端
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
@@ -935,25 +935,32 @@ class PopUpDialog(urwid.Terminal):
 class ThingWithAPopUp(urwid.PopUpLauncher):
     def open_pop_up(self, name):
         self._pop_up_widget = self.create_pop_up(name)
+
         self._invalidate()
 
     def __init__(self,button):
+        global pop_up
         self.button=button
         self.__super.__init__(self.button)   #传递按钮对象到弹窗进行处理
+
         # urwid.connect_signal(self.original_widget, 'click',
         #     lambda button: self.open_pop_up())     #模拟一旦某个按钮对象收到click信号则触发弹窗
-        global pop_up
 
         #self.abc=self.original_widget
         pop_up=self.open_pop_up  #在这里使用打开弹窗函数
         #FileButton(self.open_pop_up)
 
     def create_pop_up(self,name):  #如果使用pop的话默认执行这个函数来创建弹窗的
-        #os.system(f'echo {self.button.get_label().strip()} > 123')
+        # os.system(f'echo {self.button.get_label().strip()} > 123')
         pop_up = PopUpDialog(name)  #发送文件名到弹窗终端里
         urwid.connect_signal(pop_up, 'closed',lambda button: self.close_pop_up())              #假如收到弹窗关闭信号就关闭弹窗,会一直监听
         return pop_up
-
+    def close_pop_up(self):
+        global edit_text
+        global edit_text_value
+        edit_text.edit_text=edit_text_value
+        self._pop_up_widget = None
+        self._invalidate()
     def get_pop_up_parameters(self):
         return {'left':0, 'top':1, 'overlay_width':300, 'overlay_height':100}  #定位弹窗大小
 
@@ -1574,10 +1581,10 @@ class BigTextDisplay:
         return w
 
     def create_edit(self, label, text, fn):
-        edit = urwid.Edit(label, text)
-        urwid.connect_signal(edit, 'change', fn)
+        self.edits = urwid.Edit(label, text)
+        urwid.connect_signal(self.edits, 'change', fn)
         #fn(w)
-        w = urwid.AttrWrap(edit, 'edit')
+        w = urwid.AttrWrap(self.edits, 'edit')
         return w
 
     def set_font_event(self, w, state):
@@ -1595,6 +1602,8 @@ class BigTextDisplay:
         # self.bigtext.set_text(text)
         font_buttons = []
         global original_buttons
+        global exterfonts
+
         for buttons in original_buttons:
             try:
                 button_label = buttons.get_w().get_label()
@@ -1605,7 +1614,7 @@ class BigTextDisplay:
                     button_label = ''#当上面都失败就是标志着未找到匹配项置为空
             #os.system(f"echo {button_label} >> 123")
             #
-            import re
+
             # if label in ['[','*','(']:
 
             #     label='\\'+ label
@@ -1614,7 +1623,7 @@ class BigTextDisplay:
                 font_buttons.append(buttons)
         if font_buttons==[]:                  #在没有匹配项时添加两个空白的文件按钮
             font_buttons=[urwid.Button(''),urwid.Button(' ')]
-        exterfonts._set_widget_list(font_buttons) #exterfonts外部来配置
+        exterfonts._set_widget_list(font_buttons) #exterfonts外部来配置按钮
         # original_buttons = self.fonts._get_widget_list()
 
 
@@ -1776,6 +1785,10 @@ class BigTextDisplay:
 
         self.l=urwid.SimpleListWalker(self.page_list)
         global exlist
+
+        global edit_text
+        edit_text=self.edits
+
         exlist=self.l
 
 
@@ -2036,6 +2049,7 @@ def main():
     urwid.Button.button_left = urwid.Text("|")
     urwid.Button.button_right =urwid.Text("|")
     BigTextDisplay().main()
+
 
 if '__main__'==__name__:
     main()
