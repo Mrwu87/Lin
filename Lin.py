@@ -806,7 +806,8 @@ class PopUpDialog(urwid.Terminal):
         urwid.set_encoding('utf8')
         with open('dir.yaml', 'r') as f:
             datas = yaml.safe_load(f)
-        self.__super.__init__((setting['editor'],f'{datas["Dir"]+filename.strip("*")}'), encoding='utf-8') #创建一个终端
+        command = ssh_login + ('-t',) + (setting['editor'],f'{datas["Dir"]+filename.strip("*")}')
+        self.__super.__init__(command, encoding='utf-8') #创建一个终端
         self.main_loop=Loop   #这一步让终端流畅运行
     def keypress(self, size, key):
         #self.kp(size,key)
